@@ -42,9 +42,9 @@ function clamp(key, v){
 
 /* ---------- exercise photos ---------- */
 const FIG = {
-  wallSit:   { src:'img/wall-sit.webp',       w:535, h:960, sm:'img/wall-sit-sm.webp',       smW:134, smH:240 },
-  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:432, sm:'img/hip-bridge-sm.webp',     smW:240, smH:108 },
-  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:385, sm:'img/side-leg-raise-sm.webp', smW:240, smH:96  },
+  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:133, smH:240 },
+  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:393, sm:'img/hip-bridge-sm.webp',     smW:240, smH:98  },
+  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:240, smH:90  },
 };
 // the leg-raise photo shows the left leg lifted; mirror it for the right side
 function shot(key, alt, opt){
