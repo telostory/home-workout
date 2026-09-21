@@ -9,7 +9,7 @@ const STORE_KEY = 'runner-strength-v1';
 const DEFAULTS = {
   wallSit: 40, hipBridge: 40, legRaise: 20, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
-  bell: 5, beep: true, voice: true, vibe: true,
+  bell: 5, beep: true, voice: true, vibe: true, silentBell: true,
   theme: 'system',
 };
 const THEMES = ['system', 'light', 'dark'];
@@ -107,7 +107,15 @@ const mmss = s => {
 /* ---------- audio ---------- */
 const Audio_ = {
   ctx: null,
+  // iOS mutes Web Audio when the ring/silent switch is on, but not speech.
+  // Declaring a playback session lets the bells through anyway (iOS 16.4+).
+  applySession(){
+    try{
+      if (navigator.audioSession) navigator.audioSession.type = cfg.silentBell ? 'playback' : 'auto';
+    }catch(e){}
+  },
   init(){
+    this.applySession();
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -118,20 +126,21 @@ const Audio_ = {
     o.start(); o.stop(this.ctx.currentTime + 0.02);
   },
   resume(){ if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
-  beep(freq = 880, dur = 0.14, vol = 0.32){
+  beep(freq = 880, dur = 0.14, vol = 0.32, type = 'sine'){
     if (!cfg.beep || !this.ctx) return;
     this.resume();
     const t = this.ctx.currentTime;
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(freq, t);
+    o.type = type; o.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(vol, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(this.ctx.destination);
     o.start(t); o.stop(t + dur + 0.02);
   },
-  tick(){ this.beep(760, 0.12, 0.26); },
-  go(){ this.beep(1180, 0.34, 0.38); setTimeout(() => this.beep(1570, 0.4, 0.34), 130); },
+  // countdown bell: triangle wave carries much better on a phone speaker than a sine
+  tick(n){ this.beep(n <= 1 ? 1050 : 840, 0.2, 0.55, 'triangle'); },
+  go(){ this.beep(1180, 0.34, 0.45); setTimeout(() => this.beep(1570, 0.4, 0.4), 130); },
   done(){ [0, 170, 340].forEach((d, i) => setTimeout(() => this.beep(880 + i*260, 0.35, 0.36), d)); },
 };
 
@@ -312,6 +321,7 @@ function paintStep(){
     el.nowDur.innerHTML = `${step.dur}<span>s</span>`;
     el.nextCard.hidden = true;
   } else {
+    el.figure.innerHTML = '';
     el.phaseLabel.textContent = step.ko;
     const nx = nextWorkStep(S.i);
     if (nx){
@@ -389,8 +399,11 @@ function loop(){
   const secLeft = Math.ceil(remain - 0.001);
   if (cfg.bell > 0 && secLeft <= cfg.bell && secLeft >= 1 && secLeft !== S.lastBeepSec){
     S.lastBeepSec = secLeft;
-    Audio_.tick();
-    if (secLeft <= 3) buzz(35);
+    Audio_.tick(secLeft);
+    buzz(secLeft <= 1 ? 90 : 35);
+    el.ringText.classList.remove('beat');
+    void el.ringText.offsetWidth;
+    el.ringText.classList.add('beat');
   }
 
   tickPaint(remain, S.stepDur);
@@ -467,7 +480,7 @@ const FIELD_EL = {
   wallSit:'s_wallSit', hipBridge:'s_hipBridge', legRaise:'s_legRaise', switchTime:'s_switch',
   restEx:'s_restEx', restSet:'s_restSet', sets:'s_sets', prep:'s_prep', bell:'s_bell',
 };
-const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe' };
+const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe', silentBell:'s_silentBell' };
 
 function fillSettings(){
   FIELDS.forEach(k => { $(FIELD_EL[k]).value = cfg[k]; });
@@ -519,6 +532,7 @@ Object.keys(TOGGLES).forEach(k => {
     if (k === 'voice' && cfg.voice){ Audio_.init(); Voice.init(); Voice.say('음성 안내 켜짐'); }
     if (k === 'beep' && cfg.beep){ Audio_.init(); setTimeout(() => Audio_.tick(), 60); }
     if (k === 'vibe' && cfg.vibe) buzz(40);
+    if (k === 'silentBell'){ Audio_.init(); Audio_.applySession(); Audio_.tick(2); }
   });
 });
 el.themeSeg.addEventListener('click', e => {
