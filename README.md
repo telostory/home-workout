@@ -89,7 +89,7 @@ python3 -m http.server 8000
 index.html            화면 구조 (홈 / 운동 / 완료 / 설정 시트)
 style.css             전체 스타일, 한 화면 고정 레이아웃
 app.js                루틴 생성, 타이머 엔진, 음성·벨, 설정 저장
-img/*.webp            동작 사진, 투명 배경 (큰 것 + 목록용 작은 것) 전체 178KB
+img/*.webp            동작 사진, 투명 배경 (큰 것 + 목록용 작은 것) 전체 176KB
 manifest.webmanifest  홈 화면 추가용 PWA 설정
 icon.svg, icon-*.png  아이콘
 ```
