@@ -22,7 +22,6 @@
   --shadow-sheet:0 -10px 40px rgba(15,32,56,.18);
   --veil:rgba(244,246,249,.82);
   --scrim:rgba(15,32,56,.40);
-  --fig-floor:rgba(15,32,56,.22);
   --grad-work:linear-gradient(180deg,#fdfdfe 0%,#eef1f6 100%);
   --grad-rest:linear-gradient(170deg,#c3d4ff 0%,#cfe4f6 45%,#a9eee8 100%);
   --top-work:#fdfdfe;
@@ -57,7 +56,6 @@
     --shadow-sheet:0 -10px 40px rgba(0,0,0,.55);
     --veil:rgba(11,18,32,.84);
     --scrim:rgba(0,0,0,.55);
-    --fig-floor:rgba(232,238,248,.26);
     --grad-work:linear-gradient(180deg,#121b2c 0%,#0b1220 100%);
     --grad-rest:linear-gradient(170deg,#1b2b4d 0%,#16304a 45%,#0f3d3c 100%);
     --top-work:#121b2c;
@@ -87,7 +85,6 @@
   --shadow-sheet:0 -10px 40px rgba(0,0,0,.55);
   --veil:rgba(11,18,32,.84);
   --scrim:rgba(0,0,0,.55);
-  --fig-floor:rgba(232,238,248,.26);
   --grad-work:linear-gradient(180deg,#121b2c 0%,#0b1220 100%);
   --grad-rest:linear-gradient(170deg,#1b2b4d 0%,#16304a 45%,#0f3d3c 100%);
   --top-work:#121b2c;
@@ -158,7 +155,7 @@ svg{display:block}
   background:var(--card);border-radius:var(--r);padding:12px 16px;
   box-shadow:var(--shadow-sm);
 }
-.plan-list .pic{width:52px;height:38px;flex:0 0 auto;opacity:.9}
+.plan-list .pic{width:78px;height:56px;flex:0 0 auto}
 .plan-list .tx{flex:1 1 auto;min-width:0}
 .plan-list .tx b{display:block;font-size:15px;font-weight:750;letter-spacing:-.01em}
 .plan-list .tx small{display:block;font-size:12px;color:var(--ink-2);margin-top:2px}
@@ -175,7 +172,11 @@ svg{display:block}
 .home-foot .btn-primary{flex:1 1 auto}
 
 /* ---------- workout ---------- */
-#workout{padding-left:calc(var(--safe-l) + 16px);padding-right:calc(var(--safe-r) + 16px);transition:background .5s ease}
+#workout{
+  padding-left:calc(var(--safe-l) + 16px);padding-right:calc(var(--safe-r) + 16px);
+  transition:background .5s ease;
+}
+#workout.is-active{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 #workout[data-phase="work"]{background:var(--grad-work)}
 #workout[data-phase="rest"],
 #workout[data-phase="setrest"],
@@ -210,25 +211,26 @@ svg{display:block}
 #workout[data-phase="setrest"] .counter{opacity:0;pointer-events:none}
 
 .wk-stage{
-  flex:1 1 auto;min-height:0;position:relative;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  min-height:0;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
 }
 .figure{
-  flex:0 1 auto;min-height:0;width:100%;
-  display:grid;place-items:center;
-  transition:opacity .35s ease,max-height .35s ease;
-  max-height:46%;
+  flex:0 0 48%;min-height:0;width:100%;position:relative;
+  transition:opacity .35s ease,flex-basis .35s ease;
 }
-.figure svg{width:min(66vw,260px);height:100%;max-height:100%}
+.figure.tall{flex-basis:64%}   /* portrait shots get more room */
 #workout[data-phase="rest"] .figure,
 #workout[data-phase="setrest"] .figure,
-#workout[data-phase="prep"] .figure{opacity:0;max-height:0}
+#workout[data-phase="prep"] .figure{opacity:0;flex-basis:0}
 
 .ring-wrap{
   position:relative;flex:0 0 auto;
   width:min(58vw,224px);aspect-ratio:1;display:grid;place-items:center;
   transition:width .35s ease;
 }
+#workout[data-phase="work"] .ring-wrap{width:min(44vw,178px)}
+#workout[data-phase="work"] .big-count{font-size:clamp(38px,11vw,54px)}
+#workout[data-phase="work"] .phase-label{font-size:clamp(13px,3.8vw,16px);margin-top:6px}
 .ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .ring circle{fill:none;stroke-width:3.2;stroke-linecap:round}
 .ring-bg{stroke:var(--track)}
@@ -253,8 +255,7 @@ svg{display:block}
 .next-card[hidden]{display:none}
 .next-card small{display:block;font-size:12px;color:var(--ink-2);text-align:right;font-weight:600}
 .next-card strong{display:block;font-size:18px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
-.next-figure{width:54px;height:42px;flex:0 0 auto}
-.next-figure svg{width:100%;height:100%}
+.next-figure{width:74px;height:54px;flex:0 0 auto}
 
 .wk-foot{flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-top:6px}
 .now-info{min-width:0}
@@ -343,15 +344,26 @@ svg{display:block}
 
 .hint{font-size:12px;color:var(--ink-2);text-align:center;margin:14px 0 0}
 
-/* ---------- stick figures ---------- */
-.fig{fill:none;stroke:var(--ink);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
-.fig .floor{stroke:var(--fig-floor);stroke-width:3}
+/* ---------- exercise photos ---------- */
+/* the stage photo: hugs its own aspect, black card behind it */
+.shot-img{
+  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
+  height:100%;width:auto;max-width:100%;
+  object-fit:contain;
+  border-radius:20px;background:#000;
+  box-shadow:var(--shadow-md);
+}
+.shot-img.flip{transform:translateX(-50%) scaleX(-1)}
+/* small tiles: the box is the black card, the photo is letterboxed inside */
+.plan-list .pic,.next-figure{position:relative;border-radius:11px;overflow:hidden;background:#000}
+.thumb{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}
+.thumb.flip{transform:scaleX(-1)}
 .fig .head{fill:var(--ink);stroke:none}
 
 @media (max-height:680px){
   #home h1{font-size:28px}
   .plan-list li{padding:9px 14px}
-  .plan-list .pic{width:44px;height:32px}
+  .plan-list .pic{width:68px;height:48px}
   .btn{height:52px}
   .now-dur,.now-dur span{font-size:28px}
 }

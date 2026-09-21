@@ -40,44 +40,34 @@ function clamp(key, v){
   return Math.min(l[1], Math.max(l[0], v));
 }
 
-/* ---------- stick figures ---------- */
+/* ---------- exercise photos ---------- */
 const FIG = {
-  wallSit: `<svg class="fig" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
-    <path class="floor" d="M34 118h140"/>
-    <path class="floor" d="M56 12v106"/>
-    <circle class="head" cx="70" cy="32" r="11"/>
-    <path d="M64 43v30"/>
-    <path d="M64 73h48"/>
-    <path d="M112 73v45"/>
-    <path d="M112 118h20"/>
-    <path d="M64 54l32 7"/>
-  </svg>`,
-  hipBridge: `<svg class="fig" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
-    <path class="floor" d="M16 114h168"/>
-    <circle class="head" cx="36" cy="103" r="11"/>
-    <path d="M52 105l60 -31"/>
-    <path d="M112 74l38 14"/>
-    <path d="M150 88v26"/>
-    <path d="M56 108l26 6"/>
-  </svg>`,
-  legRaise: `<svg class="fig" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
-    <path class="floor" d="M14 114h172"/>
-    <circle class="head" cx="160" cy="92" r="11"/>
-    <path d="M150 99l-58 8"/>
-    <path d="M92 107l-34 4"/>
-    <path d="M58 111l-30 3"/>
-    <path d="M92 107l-32 -18"/>
-    <path d="M60 89l-28 -16"/>
-    <path d="M152 102l-14 12"/>
-    <path d="M38 104q-8 -14 -2 -26" stroke-dasharray="4 8" opacity=".4"/>
-  </svg>`,
+  wallSit:   { src:'img/wall-sit.webp',       w:535, h:960, sm:'img/wall-sit-sm.webp',       smW:134, smH:240 },
+  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:432, sm:'img/hip-bridge-sm.webp',     smW:240, smH:108 },
+  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:385, sm:'img/side-leg-raise-sm.webp', smW:240, smH:96  },
 };
+// the leg-raise photo shows the left leg lifted; mirror it for the right side
+function shot(key, alt, opt){
+  const f = FIG[key];
+  if (!f) return '';
+  const o = opt || {};
+  const cls = (o.small ? 'thumb' : 'shot-img') + (o.flip ? ' flip' : '');
+  const src = o.small ? f.sm : f.src;
+  const w = o.small ? f.smW : f.w;
+  const h = o.small ? f.smH : f.h;
+  return `<img class="${cls}" src="${src}" width="${w}" height="${h}" alt="${alt}" decoding="async">`;
+}
+const needsFlip = step => !!step.side && !!step.shotSide && step.side !== step.shotSide;
+// warm the cache so switching exercises never shows an empty frame
+function preloadShots(){
+  Object.values(FIG).forEach(f => { [f.src, f.sm].forEach(u => { const i = new Image(); i.src = u; }); });
+}
 
 /* ---------- exercises ---------- */
 const EXERCISES = [
   { id:'wallSit',   ko:'월 싯',            en:'Wall Sit',        say:'월싯',              desc:'허벅지 앞·코어',      fig:'wallSit'   },
   { id:'hipBridge', ko:'힙 브릿지',         en:'Hip Bridge',      say:'힙 브릿지',          desc:'둔근·햄스트링',      fig:'hipBridge' },
-  { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 (양쪽)',      fig:'legRaise', perSide:true },
+  { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 (양쪽)',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
 ];
 const byId = id => EXERCISES.find(e => e.id === id);
 
@@ -105,7 +95,7 @@ function buildPlan(c){
 
   function work(id, dur, set, exIdx, side){
     const e = byId(id);
-    return { kind:'work', id, dur, set, exIdx, side, ko:e.ko, en:e.en, say:e.say, fig:e.fig };
+    return { kind:'work', id, dur, set, exIdx, side, ko:e.ko, en:e.en, say:e.say, fig:e.fig, shotSide:e.shotSide };
   }
 }
 const totalOf = steps => steps.reduce((a, s) => a + s.dur, 0);
@@ -254,7 +244,7 @@ function renderHome(){
       ? `${per}초 × 좌우`
       : `${per}초`;
     return `<li>
-      <div class="pic">${FIG[e.fig]}</div>
+      <div class="pic">${shot(e.fig, e.ko, { small:true })}</div>
       <div class="tx"><b>${e.ko}</b><small>${e.desc}</small></div>
       <div class="tm">${label}</div>
     </li>`;
@@ -292,8 +282,7 @@ function updateSegments(step){
 }
 
 function figFor(step){
-  if (step.kind === 'work') return FIG[step.fig];
-  return '';
+  return step.kind === 'work' ? shot(step.fig, step.ko, { flip: needsFlip(step) }) : '';
 }
 function setViewportHeight(){
   document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
@@ -317,6 +306,8 @@ function paintStep(){
 
   if (step.kind === 'work'){
     el.figure.innerHTML = figFor(step);
+    const f = FIG[step.fig];
+    el.figure.classList.toggle('tall', !!f && f.h > f.w);
     el.phaseLabel.textContent = step.ko;
     el.nowName.textContent = step.ko;
     el.nowSide.textContent = step.side || '';
@@ -327,7 +318,7 @@ function paintStep(){
     const nx = nextWorkStep(S.i);
     if (nx){
       el.nextName.textContent = nx.ko + (nx.side ? ` (${nx.side})` : '');
-      el.nextFigure.innerHTML = FIG[nx.fig];
+      el.nextFigure.innerHTML = shot(nx.fig, nx.ko, { small:true, flip: needsFlip(nx) });
       el.nowName.textContent = nx.ko;
       el.nowSide.textContent = nx.side || '';
       el.nowDur.innerHTML = `${nx.dur}<span>s</span>`;
@@ -593,6 +584,7 @@ window.addEventListener('orientationchange', () => setTimeout(setViewportHeight,
 setViewportHeight();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
 applyTheme();
+preloadShots();
 fillSettings();
 renderHome();
 show('home');
