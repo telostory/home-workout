@@ -10,7 +10,9 @@ const DEFAULTS = {
   wallSit: 40, hipBridge: 40, legRaise: 20, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
   bell: 5, beep: true, voice: true, vibe: true,
+  theme: 'system',
 };
+const THEMES = ['system', 'light', 'dark'];
 const LIMITS = {
   wallSit:[5,300], hipBridge:[5,300], legRaise:[5,300], switchTime:[0,60],
   restEx:[0,300], restSet:[0,600], sets:[1,10], prep:[0,60], bell:[0,10],
@@ -25,8 +27,10 @@ function load(){
     for (const k of Object.keys(DEFAULTS)){
       if (!(k in raw)) continue;
       if (typeof DEFAULTS[k] === 'boolean') out[k] = !!raw[k];
+      else if (typeof DEFAULTS[k] === 'string') out[k] = String(raw[k]);
       else if (Number.isFinite(+raw[k])) out[k] = clamp(k, Math.round(+raw[k]));
     }
+    if (!THEMES.includes(out.theme)) out.theme = DEFAULTS.theme;
     return out;
   }catch(e){ return { ...DEFAULTS }; }
 }
@@ -205,6 +209,7 @@ const el = {
   doneTime: $('doneTime'), doneSets: $('doneSets'), btnAgain: $('btnAgain'), btnHome: $('btnHome'),
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
+  themeSeg: $('themeSeg'), themeColor: $('themeColor'),
 };
 const RING_LEN = 2 * Math.PI * 54;
 
@@ -214,6 +219,30 @@ const S = {
   running: false, paused: false, pauseAt: 0,
   lastBeepSec: -1, raf: 0, elapsedBefore: 0, startedAt: 0,
 };
+
+/* ---------- theme ---------- */
+function applyTheme(){
+  const t = THEMES.includes(cfg.theme) ? cfg.theme : 'system';
+  if (t === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.dataset.theme = t;
+  el.themeSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.theme === t));
+  paintThemeColor();
+}
+// keep the mobile status bar in step with whatever is at the top of the screen
+function paintThemeColor(){
+  const cs = getComputedStyle(document.documentElement);
+  const phase = el.workout.classList.contains('is-active') ? el.workout.dataset.phase : '';
+  let v;
+  if (phase === 'rest' || phase === 'setrest' || phase === 'switch') v = cs.getPropertyValue('--top-rest');
+  else if (phase) v = cs.getPropertyValue('--top-work');
+  else v = cs.getPropertyValue('--bg');
+  if (el.themeColor && v.trim()) el.themeColor.setAttribute('content', v.trim());
+}
+if (window.matchMedia){
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const onChange = () => { if (cfg.theme === 'system') paintThemeColor(); };
+  mq.addEventListener ? mq.addEventListener('change', onChange) : mq.addListener(onChange);
+}
 
 /* ---------- home rendering ---------- */
 function renderHome(){
@@ -312,6 +341,7 @@ function paintStep(){
   el.ringText.classList.remove('pulse');
   void el.ringText.offsetWidth;
   el.ringText.classList.add('pulse');
+  paintThemeColor();
 }
 
 function announce(step){
@@ -439,6 +469,7 @@ function finishWorkout(){
 /* ---------- navigation ---------- */
 function show(name){
   ['home','workout','done'].forEach(k => el[k].classList.toggle('is-active', k === name));
+  paintThemeColor();
 }
 
 /* ---------- settings sheet ---------- */
@@ -452,6 +483,7 @@ const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe' };
 function fillSettings(){
   FIELDS.forEach(k => { $(FIELD_EL[k]).value = cfg[k]; });
   Object.keys(TOGGLES).forEach(k => { $(TOGGLES[k]).checked = !!cfg[k]; });
+  el.themeSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.theme === cfg.theme));
   syncSoundIcon();
 }
 function readField(k){
@@ -500,6 +532,11 @@ Object.keys(TOGGLES).forEach(k => {
     if (k === 'vibe' && cfg.vibe) buzz(40);
   });
 });
+el.themeSeg.addEventListener('click', e => {
+  const b = e.target.closest('button[data-theme]');
+  if (!b) return;
+  cfg.theme = b.dataset.theme; save(); applyTheme(); buzz(10);
+});
 el.btnTestSound.addEventListener('click', () => {
   Audio_.init(); Voice.init();
   Audio_.tick();
@@ -507,7 +544,7 @@ el.btnTestSound.addEventListener('click', () => {
   setTimeout(() => { Audio_.go(); Voice.say('월싯, ' + cfg.wallSit + '초'); }, 900);
 });
 el.btnReset.addEventListener('click', () => {
-  cfg = { ...DEFAULTS }; save(); fillSettings(); renderHome();
+  cfg = { ...DEFAULTS }; save(); fillSettings(); applyTheme(); renderHome();
 });
 
 el.btnNext.addEventListener('click', () => { Audio_.init(); jump(1); });
@@ -555,6 +592,7 @@ window.addEventListener('orientationchange', () => setTimeout(setViewportHeight,
 /* ---------- boot ---------- */
 setViewportHeight();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
+applyTheme();
 fillSettings();
 renderHome();
 show('home');
