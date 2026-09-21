@@ -215,10 +215,9 @@ svg{display:block}
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
 }
 .figure{
-  flex:0 0 48%;min-height:0;width:100%;position:relative;
+  flex:0 0 46%;min-height:0;width:100%;position:relative;
   transition:opacity .35s ease,flex-basis .35s ease;
 }
-.figure.tall{flex-basis:64%}   /* portrait shots get more room */
 #workout[data-phase="rest"] .figure,
 #workout[data-phase="setrest"] .figure,
 #workout[data-phase="prep"] .figure{opacity:0;flex-basis:0}
@@ -228,9 +227,7 @@ svg{display:block}
   width:min(58vw,224px);aspect-ratio:1;display:grid;place-items:center;
   transition:width .35s ease;
 }
-#workout[data-phase="work"] .ring-wrap{width:min(44vw,178px)}
-#workout[data-phase="work"] .big-count{font-size:clamp(38px,11vw,54px)}
-#workout[data-phase="work"] .phase-label{font-size:clamp(13px,3.8vw,16px);margin-top:6px}
+
 .ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .ring circle{fill:none;stroke-width:3.2;stroke-linecap:round}
 .ring-bg{stroke:var(--track)}
@@ -345,15 +342,17 @@ svg{display:block}
 .hint{font-size:12px;color:var(--ink-2);text-align:center;margin:14px 0 0}
 
 /* ---------- exercise photos ---------- */
-/* the stage photo: hugs its own aspect, black card behind it */
+/* the stage photo: kept small, hugging its own aspect on a black card */
 .shot-img{
-  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
-  height:100%;width:auto;max-width:100%;
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:auto;height:auto;
+  max-width:min(64vw,252px);max-height:100%;
   object-fit:contain;
-  border-radius:20px;background:#000;
+  border-radius:16px;background:#000;
   box-shadow:var(--shadow-md);
 }
-.shot-img.flip{transform:translateX(-50%) scaleX(-1)}
+.shot-img.flip{transform:translate(-50%,-50%) scaleX(-1)}
 /* small tiles: the box is the black card, the photo is letterboxed inside */
 .plan-list .pic,.next-figure{position:relative;border-radius:11px;overflow:hidden;background:#000}
 .thumb{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}

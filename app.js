@@ -306,8 +306,6 @@ function paintStep(){
 
   if (step.kind === 'work'){
     el.figure.innerHTML = figFor(step);
-    const f = FIG[step.fig];
-    el.figure.classList.toggle('tall', !!f && f.h > f.w);
     el.phaseLabel.textContent = step.ko;
     el.nowName.textContent = step.ko;
     el.nowSide.textContent = step.side || '';
