@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="러닝 근력">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css">
+<title>러닝 근력 트레이닝</title>
+</head>
+<body>
+
+<!-- ====================== HOME ====================== -->
+<section id="home" class="screen is-active">
+  <header class="home-head">
+    <p class="eyebrow">RUNNER'S STRENGTH</p>
+    <h1>러닝 근력<br>트레이닝</h1>
+  </header>
+
+  <div class="home-body">
+    <ul id="planList" class="plan-list"></ul>
+    <div class="plan-meta">
+      <div><span id="metaSets">3</span><small>세트</small></div>
+      <div><span id="metaTime">—</span><small>총 시간</small></div>
+      <div><span id="metaMoves">3</span><small>동작</small></div>
+    </div>
+  </div>
+
+  <footer class="home-foot">
+    <button id="btnSettings" class="btn btn-ghost" type="button">설정</button>
+    <button id="btnStart" class="btn btn-primary" type="button">시작하기</button>
+  </footer>
+</section>
+
+<!-- ==================== WORKOUT ==================== -->
+<section id="workout" class="screen" data-phase="prep">
+  <div class="wk-top">
+    <div id="segments" class="segments"></div>
+    <div class="wk-bar">
+      <button id="btnClose" class="icon-btn" type="button" aria-label="종료">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div id="totalLeft" class="total-left">00:00</div>
+      <button id="btnSound" class="icon-btn" type="button" aria-label="소리">
+        <svg viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path class="wave" d="M16 9a4 4 0 010 6"/></svg>
+      </button>
+    </div>
+    <div id="counter" class="counter">
+      <div><span>라운드</span><b><i id="cRound">1</i>/<em id="cRoundT">3</em></b></div>
+      <div><span>운동</span><b><i id="cEx">1</i>/<em id="cExT">3</em></b></div>
+    </div>
+  </div>
+
+  <div class="wk-stage">
+    <div id="figure" class="figure"></div>
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 120 120">
+        <circle class="ring-bg" cx="60" cy="60" r="54"/>
+        <circle id="ringFg" class="ring-fg" cx="60" cy="60" r="54"/>
+      </svg>
+      <div class="ring-text">
+        <div id="bigCount" class="big-count">40</div>
+        <div id="phaseLabel" class="phase-label">준비하세요</div>
+      </div>
+    </div>
+    <div id="nextCard" class="next-card" hidden>
+      <div>
+        <small>다음</small>
+        <strong id="nextName">Wall Sit</strong>
+      </div>
+      <div id="nextFigure" class="next-figure"></div>
+    </div>
+  </div>
+
+  <div class="wk-foot">
+    <div class="now-info">
+      <div id="nowDur" class="now-dur"><span>40</span>s</div>
+      <div id="nowName" class="now-name">Wall Sit</div>
+      <div id="nowSide" class="now-side"></div>
+    </div>
+    <div class="wk-actions">
+      <button id="btnPrev" class="icon-btn round" type="button" aria-label="이전">
+        <svg viewBox="0 0 24 24"><path d="M18 18V6l-9 6zM6 6v12" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button id="btnNext" class="icon-btn round big" type="button" aria-label="다음">
+        <svg viewBox="0 0 24 24"><path d="M6 6v12l9-6zM18 6v12" fill="currentColor" stroke="none"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="pauseVeil" class="pause-veil" hidden>
+    <div class="pause-card">
+      <div class="pause-title">일시정지</div>
+      <button id="btnResume" class="btn btn-primary" type="button">계속하기</button>
+      <button id="btnQuit" class="btn btn-ghost" type="button">운동 종료</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== DONE ====================== -->
+<section id="done" class="screen">
+  <div class="done-inner">
+    <div class="done-mark">
+      <svg viewBox="0 0 48 48"><path d="M12 25l9 9 16-18"/></svg>
+    </div>
+    <h2>수고하셨습니다</h2>
+    <p class="done-sub">오늘의 러닝 근력 루틴 완료</p>
+    <div class="done-stats">
+      <div><span id="doneTime">—</span><small>운동 시간</small></div>
+      <div><span id="doneSets">3</span><small>세트</small></div>
+    </div>
+    <button id="btnAgain" class="btn btn-primary" type="button">한 번 더</button>
+    <button id="btnHome" class="btn btn-ghost" type="button">홈으로</button>
+  </div>
+</section>
+
+<!-- ==================== SETTINGS ==================== -->
+<section id="settings" class="sheet">
+  <div class="sheet-head">
+    <h2>설정</h2>
+    <button id="btnSettingsClose" class="icon-btn" type="button" aria-label="닫기">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <h3>운동 시간</h3>
+    <div class="row"><label for="s_wallSit">월 싯</label><div class="stepper" data-for="s_wallSit"><button type="button" data-d="-5">−</button><input id="s_wallSit" type="number" inputmode="numeric" min="5" max="300" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
+    <div class="row"><label for="s_hipBridge">힙 브릿지</label><div class="stepper" data-for="s_hipBridge"><button type="button" data-d="-5">−</button><input id="s_hipBridge" type="number" inputmode="numeric" min="5" max="300" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
+    <div class="row"><label for="s_legRaise">사이드 레그 레이즈 <small>한쪽</small></label><div class="stepper" data-for="s_legRaise"><button type="button" data-d="-5">−</button><input id="s_legRaise" type="number" inputmode="numeric" min="5" max="300" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
+    <div class="row"><label for="s_switch">다리 교체</label><div class="stepper" data-for="s_switch"><button type="button" data-d="-1">−</button><input id="s_switch" type="number" inputmode="numeric" min="0" max="60" step="1"><button type="button" data-d="1">+</button><i>초</i></div></div>
+
+    <h3>휴식 &amp; 세트</h3>
+    <div class="row"><label for="s_restEx">운동 사이 휴식</label><div class="stepper" data-for="s_restEx"><button type="button" data-d="-5">−</button><input id="s_restEx" type="number" inputmode="numeric" min="0" max="300" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
+    <div class="row"><label for="s_restSet">세트 사이 휴식</label><div class="stepper" data-for="s_restSet"><button type="button" data-d="-5">−</button><input id="s_restSet" type="number" inputmode="numeric" min="0" max="600" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
+    <div class="row"><label for="s_sets">세트 수</label><div class="stepper" data-for="s_sets"><button type="button" data-d="-1">−</button><input id="s_sets" type="number" inputmode="numeric" min="1" max="10" step="1"><button type="button" data-d="1">+</button><i>세트</i></div></div>
+    <div class="row"><label for="s_prep">시작 전 준비</label><div class="stepper" data-for="s_prep"><button type="button" data-d="-1">−</button><input id="s_prep" type="number" inputmode="numeric" min="0" max="60" step="1"><button type="button" data-d="1">+</button><i>초</i></div></div>
+
+    <h3>소리</h3>
+    <div class="row"><label for="s_bell">카운트다운 벨 <small>종료 전</small></label><div class="stepper" data-for="s_bell"><button type="button" data-d="-1">−</button><input id="s_bell" type="number" inputmode="numeric" min="0" max="10" step="1"><button type="button" data-d="1">+</button><i>초</i></div></div>
+    <div class="row toggle-row"><label for="s_beep">벨 소리</label><label class="switch"><input id="s_beep" type="checkbox"><span></span></label></div>
+    <div class="row toggle-row"><label for="s_voice">음성 안내</label><label class="switch"><input id="s_voice" type="checkbox"><span></span></label></div>
+    <div class="row toggle-row"><label for="s_vibe">진동</label><label class="switch"><input id="s_vibe" type="checkbox"><span></span></label></div>
+    <button id="btnTestSound" class="btn btn-ghost full" type="button">소리 테스트</button>
+    <button id="btnReset" class="btn btn-ghost full danger" type="button">기본값으로 되돌리기</button>
+    <p class="hint">설정은 이 기기에 자동 저장됩니다.</p>
+  </div>
+</section>
+<div id="scrim" class="scrim"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
