@@ -9,7 +9,7 @@ const STORE_KEY = 'runner-strength-v1';
 const DEFAULTS = {
   wallSit: 40, hipBridge: 40, legRaise: 20, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
-  bell: 5, beep: true, voice: true, vibe: true, silentBell: true,
+  bell: 5, beep: true, voice: true, vibe: true, silentBell: true, sayCount: true,
   theme: 'system',
 };
 const THEMES = ['system', 'light', 'dark'];
@@ -160,13 +160,13 @@ const Voice = {
     const vs = speechSynthesis.getVoices() || [];
     return vs.find(v => v.lang && v.lang.toLowerCase().startsWith('ko')) || null;
   },
-  say(text, { force = false } = {}){
+  say(text, { force = false, rate = 1.05 } = {}){
     if (!('speechSynthesis' in window)) return;
     if (!cfg.voice && !force) return;
     try{
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ko-KR'; u.rate = 1.05; u.pitch = 1; u.volume = 1;
+      u.lang = 'ko-KR'; u.rate = rate; u.pitch = 1; u.volume = 1;
       const v = this.pickVoice(); if (v) u.voice = v;
       speechSynthesis.speak(u);
     }catch(e){}
@@ -208,7 +208,7 @@ const el = {
   doneTime: $('doneTime'), doneSets: $('doneSets'), btnAgain: $('btnAgain'), btnHome: $('btnHome'),
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
-  themeSeg: $('themeSeg'), themeColor: $('themeColor'),
+  themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
 };
 const RING_LEN = 2 * Math.PI * 54;
 
@@ -294,7 +294,9 @@ function figFor(step){
   return step.kind === 'work' ? shot(step.fig, step.ko, { flip: needsFlip(step) }) : '';
 }
 function setViewportHeight(){
-  document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+  const h = window.innerHeight;
+  document.documentElement.style.setProperty('--app-h', h + 'px');
+  document.documentElement.style.setProperty('--vh', (h / 100) + 'px');
 }
 function nextWorkStep(from){
   for (let k = from + 1; k < S.steps.length; k++){
@@ -400,6 +402,7 @@ function loop(){
   if (cfg.bell > 0 && secLeft <= cfg.bell && secLeft >= 1 && secLeft !== S.lastBeepSec){
     S.lastBeepSec = secLeft;
     Audio_.tick(secLeft);
+    if (cfg.sayCount) Voice.say(String(secLeft), { rate: 1.35 });
     buzz(secLeft <= 1 ? 90 : 35);
     el.ringText.classList.remove('beat');
     void el.ringText.offsetWidth;
@@ -480,7 +483,7 @@ const FIELD_EL = {
   wallSit:'s_wallSit', hipBridge:'s_hipBridge', legRaise:'s_legRaise', switchTime:'s_switch',
   restEx:'s_restEx', restSet:'s_restSet', sets:'s_sets', prep:'s_prep', bell:'s_bell',
 };
-const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe', silentBell:'s_silentBell' };
+const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe', sayCount:'s_sayCount', silentBell:'s_silentBell' };
 
 function fillSettings(){
   FIELDS.forEach(k => { $(FIELD_EL[k]).value = cfg[k]; });
@@ -497,8 +500,22 @@ function readField(k){
   cfg[k] = v;
   save(); renderHome();
 }
-function openSheet(){ fillSettings(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
+function openSheet(){ fillSettings(); showAudioInfo(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
+// plain-language report of what this device actually supports
+function showAudioInfo(){
+  if (!el.audioInfo) return;
+  const bits = [];
+  const sess = (typeof navigator !== 'undefined') && navigator.audioSession;
+  bits.push(sess ? `무음 우회 ${sess.type === 'playback' ? '켜짐' : '가능(꺼짐)'}` : '무음 우회 미지원');
+  bits.push(`오디오 ${Audio_.ctx ? Audio_.ctx.state : '미시작'}`);
+  if ('speechSynthesis' in window){
+    const v = Voice.pickVoice();
+    bits.push(v ? `음성 ${v.name}` : '음성 한국어 없음');
+  } else bits.push('음성 미지원');
+  el.audioInfo.textContent = bits.join(' · ');
+}
+
 function syncSoundIcon(){
   const on = cfg.beep || cfg.voice;
   el.btnSound.classList.toggle('muted', !on);
@@ -532,7 +549,8 @@ Object.keys(TOGGLES).forEach(k => {
     if (k === 'voice' && cfg.voice){ Audio_.init(); Voice.init(); Voice.say('음성 안내 켜짐'); }
     if (k === 'beep' && cfg.beep){ Audio_.init(); setTimeout(() => Audio_.tick(), 60); }
     if (k === 'vibe' && cfg.vibe) buzz(40);
-    if (k === 'silentBell'){ Audio_.init(); Audio_.applySession(); Audio_.tick(2); }
+    if (k === 'silentBell'){ Audio_.init(); Audio_.applySession(); Audio_.tick(2); showAudioInfo(); }
+    if (k === 'sayCount' && cfg.sayCount){ Voice.init(); Voice.say('3', { rate:1.35 }); }
   });
 });
 el.themeSeg.addEventListener('click', e => {
@@ -545,6 +563,7 @@ el.btnTestSound.addEventListener('click', () => {
   Audio_.tick();
   setTimeout(() => Audio_.tick(), 450);
   setTimeout(() => { Audio_.go(); Voice.say('월싯, ' + cfg.wallSit + '초'); }, 900);
+  setTimeout(showAudioInfo, 300);
 });
 el.btnReset.addEventListener('click', () => {
   cfg = { ...DEFAULTS }; save(); fillSettings(); applyTheme(); renderHome();
