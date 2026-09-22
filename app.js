@@ -201,7 +201,7 @@ const el = {
   cRound: $('cRound'), cRoundT: $('cRoundT'), cEx: $('cEx'), cExT: $('cExT'),
   figure: $('figure'), ringFg: $('ringFg'), ringText: document.querySelector('.ring-text'),
   bigCount: $('bigCount'), phaseLabel: $('phaseLabel'),
-  nextCard: $('nextCard'), nextName: $('nextName'), nextFigure: $('nextFigure'),
+  nextCard: $('nextCard'), nextName: $('nextName'), nextLabel: $('nextLabel'), nextFigure: $('nextFigure'),
   nowDur: $('nowDur'), nowName: $('nowName'), nowSide: $('nowSide'),
   btnPrev: $('btnPrev'), btnNext: $('btnNext'), btnClose: $('btnClose'), btnSound: $('btnSound'),
   pauseVeil: $('pauseVeil'), btnResume: $('btnResume'), btnQuit: $('btnQuit'),
@@ -327,7 +327,8 @@ function paintStep(){
     el.phaseLabel.textContent = step.ko;
     const nx = nextWorkStep(S.i);
     if (nx){
-      el.nextName.textContent = nx.ko + (nx.side ? ` (${nx.side})` : '');
+      el.nextName.textContent = nx.ko;
+      el.nextLabel.textContent = nx.side ? `다음 · ${nx.side}` : '다음';
       el.nextFigure.innerHTML = shot(nx.fig, nx.ko, { small:true, flip: needsFlip(nx) });
       el.nowName.textContent = nx.ko;
       el.nowSide.textContent = nx.side || '';
