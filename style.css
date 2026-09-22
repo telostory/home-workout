@@ -257,7 +257,7 @@ svg{display:block}
   display:block;font-size:clamp(15px,4.6vw,19px);font-weight:800;letter-spacing:-.01em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.next-figure{width:72px;height:52px;flex:0 0 auto}
+.next-figure{width:74px;height:62px;flex:0 0 auto}
 
 .wk-foot{flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-top:6px}
 .now-info{min-width:0}
