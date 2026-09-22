@@ -156,7 +156,7 @@ svg{display:block}
   background:var(--card);border-radius:var(--r);padding:10px 16px;
   box-shadow:var(--shadow-sm);
 }
-.plan-list .pic{align-self:stretch;aspect-ratio:4/3;width:auto;flex:0 0 auto;max-width:27%}
+.plan-list .pic{flex:0 0 auto;align-self:stretch;width:clamp(76px,26%,120px);min-height:52px}
 .plan-list .tx{flex:1 1 auto;min-width:0}
 .plan-list .tx b{display:block;font-size:15px;font-weight:750;letter-spacing:-.01em;word-break:keep-all}
 .plan-list .tx small{display:block;font-size:12px;color:var(--ink-2);margin-top:2px}
