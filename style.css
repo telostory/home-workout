@@ -149,14 +149,20 @@ svg{display:block}
 .eyebrow{margin:0 0 6px;font-size:11px;letter-spacing:.18em;font-weight:800;color:var(--accent)}
 #home h1{margin:0;font-size:34px;line-height:1.15;letter-spacing:-.02em;font-weight:850}
 .home-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:12px}
-.plan-list{list-style:none;margin:0;padding:0;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+.plan-list{
+  list-style:none;margin:0;padding:0;
+  flex:1 1 auto;min-height:0;
+  display:flex;flex-direction:column;justify-content:space-between;gap:10px;
+  --rows:3;                                   /* set from JS to the exercise count */
+  --card-h:clamp(52px,calc((var(--vh,1vh) * 48 - (var(--rows) - 1) * 10px) / var(--rows)),158px);
+}
 .plan-list li{
-  flex:0 0 auto;height:clamp(74px,calc(var(--vh,1vh) * 16.5),160px);
+  flex:0 1 auto;height:var(--card-h);min-height:0;overflow:hidden;
   display:flex;align-items:center;gap:14px;
   background:var(--card);border-radius:var(--r);padding:10px 16px;
   box-shadow:var(--shadow-sm);
 }
-.plan-list .pic{flex:0 0 auto;width:clamp(78px,22vw,120px);height:clamp(52px,calc(var(--vh,1vh) * 12),124px)}
+.plan-list .pic{flex:0 0 auto;width:clamp(72px,22vw,120px);height:calc(var(--card-h) - 20px)}
 .plan-list .tx{flex:1 1 auto;min-width:0}
 .plan-list .tx b{display:block;font-size:15px;font-weight:750;letter-spacing:-.01em;word-break:keep-all}
 .plan-list .tx small{display:block;font-size:12px;color:var(--ink-2);margin-top:2px}

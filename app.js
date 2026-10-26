@@ -7,14 +7,14 @@
 /* ---------- config ---------- */
 const STORE_KEY = 'runner-strength-v1';
 const DEFAULTS = {
-  wallSit: 40, hipBridge: 40, legRaise: 20, switchTime: 5,
+  singleLeg: 40, wallSit: 40, hipBridge: 40, legRaise: 20, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
   bell: 5, beep: true, voice: true, vibe: true, silentBell: true, sayCount: true,
   theme: 'system',
 };
 const THEMES = ['system', 'light', 'dark'];
 const LIMITS = {
-  wallSit:[5,300], hipBridge:[5,300], legRaise:[5,300], switchTime:[0,60],
+  singleLeg:[5,300], wallSit:[5,300], hipBridge:[5,300], legRaise:[5,300], switchTime:[0,60],
   restEx:[0,300], restSet:[0,600], sets:[1,10], prep:[0,60], bell:[0,10],
 };
 
@@ -42,9 +42,10 @@ function clamp(key, v){
 
 /* ---------- exercise photos ---------- */
 const FIG = {
-  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:440, smH:392 },
-  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:440, smH:392 },
-  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:440, smH:392 },
+  singleLeg: { src:'img/single-leg.webp',      w:354, h:960, sm:'img/single-leg-sm.webp',     smW:440, smH:426 },
+  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:440, smH:426 },
+  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:440, smH:426 },
+  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:440, smH:426 },
 };
 // the leg-raise photo shows the left leg lifted; mirror it for the right side
 function shot(key, alt, opt){
@@ -65,6 +66,7 @@ function preloadShots(){
 
 /* ---------- exercises ---------- */
 const EXERCISES = [
+  { id:'singleLeg', ko:'한 발 서기',        en:'Single Leg Stand', say:'한 발 서기',        desc:'균형·발목 안정',      fig:'singleLeg' },
   { id:'wallSit',   ko:'월 싯',            en:'Wall Sit',        say:'월싯',              desc:'허벅지 앞·코어',      fig:'wallSit'   },
   { id:'hipBridge', ko:'힙 브릿지',         en:'Hip Bridge',      say:'힙 브릿지',          desc:'둔근·햄스트링',      fig:'hipBridge' },
   { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 (양쪽)',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
@@ -74,28 +76,29 @@ const byId = id => EXERCISES.find(e => e.id === id);
 /* ---------- plan builder ---------- */
 function buildPlan(c){
   const steps = [];
-  const ex = { wallSit:c.wallSit, hipBridge:c.hipBridge, legRaise:c.legRaise };
   if (c.prep > 0) steps.push({ kind:'prep', dur:c.prep, ko:'준비하세요', set:0, exIdx:0 });
 
   for (let s = 0; s < c.sets; s++){
-    const last = s === c.sets - 1;
-    // 1. wall sit
-    steps.push(work('wallSit', ex.wallSit, s, 1));
-    if (c.restEx > 0) steps.push({ kind:'rest', dur:c.restEx, ko:'휴식', set:s, exIdx:1 });
-    // 2. hip bridge
-    steps.push(work('hipBridge', ex.hipBridge, s, 2));
-    if (c.restEx > 0) steps.push({ kind:'rest', dur:c.restEx, ko:'휴식', set:s, exIdx:2 });
-    // 3. side leg raise (both sides)
-    steps.push(work('legRaise', ex.legRaise, s, 3, '오른쪽'));
-    if (c.switchTime > 0) steps.push({ kind:'switch', dur:c.switchTime, ko:'다리 바꾸기', set:s, exIdx:3 });
-    steps.push(work('legRaise', ex.legRaise, s, 3, '왼쪽'));
-    if (!last && c.restSet > 0) steps.push({ kind:'setrest', dur:c.restSet, ko:'세트 휴식', set:s, exIdx:3 });
+    EXERCISES.forEach((e, idx) => {
+      const exIdx = idx + 1, dur = c[e.id];
+      if (e.perSide){
+        steps.push(work(e, dur, s, exIdx, '오른쪽'));
+        if (c.switchTime > 0) steps.push({ kind:'switch', dur:c.switchTime, ko:'다리 바꾸기', set:s, exIdx });
+        steps.push(work(e, dur, s, exIdx, '왼쪽'));
+      } else {
+        steps.push(work(e, dur, s, exIdx));
+      }
+      const lastEx = idx === EXERCISES.length - 1;
+      if (!lastEx && c.restEx > 0) steps.push({ kind:'rest', dur:c.restEx, ko:'휴식', set:s, exIdx });
+    });
+    if (s < c.sets - 1 && c.restSet > 0)
+      steps.push({ kind:'setrest', dur:c.restSet, ko:'세트 휴식', set:s, exIdx:EXERCISES.length });
   }
   return steps;
 
-  function work(id, dur, set, exIdx, side){
-    const e = byId(id);
-    return { kind:'work', id, dur, set, exIdx, side, ko:e.ko, en:e.en, say:e.say, fig:e.fig, shotSide:e.shotSide };
+  function work(e, dur, set, exIdx, side){
+    return { kind:'work', id:e.id, dur, set, exIdx, side,
+             ko:e.ko, en:e.en, say:e.say, fig:e.fig, shotSide:e.shotSide };
   }
 }
 const totalOf = steps => steps.reduce((a, s) => a + s.dur, 0);
@@ -258,6 +261,7 @@ function renderHome(){
       <div class="tm">${label}</div>
     </li>`;
   }).join('');
+  el.planList.style.setProperty('--rows', EXERCISES.length);
   el.metaSets.textContent = cfg.sets;
   el.metaTime.textContent = mmss(total).replace(/^0/, '');
   el.metaMoves.textContent = EXERCISES.length;
@@ -479,9 +483,9 @@ function show(name){
 }
 
 /* ---------- settings sheet ---------- */
-const FIELDS = ['wallSit','hipBridge','legRaise','switchTime','restEx','restSet','sets','prep','bell'];
+const FIELDS = ['singleLeg','wallSit','hipBridge','legRaise','switchTime','restEx','restSet','sets','prep','bell'];
 const FIELD_EL = {
-  wallSit:'s_wallSit', hipBridge:'s_hipBridge', legRaise:'s_legRaise', switchTime:'s_switch',
+  singleLeg:'s_singleLeg', wallSit:'s_wallSit', hipBridge:'s_hipBridge', legRaise:'s_legRaise', switchTime:'s_switch',
   restEx:'s_restEx', restSet:'s_restSet', sets:'s_sets', prep:'s_prep', bell:'s_bell',
 };
 const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe', sayCount:'s_sayCount', silentBell:'s_silentBell' };
