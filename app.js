@@ -48,9 +48,9 @@ const FIG = {
   singleLeg: { src:'img/single-leg.webp',      w:354, h:960, sm:'img/single-leg-sm.webp',     smW:440, smH:426 },
   wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:440, smH:426 },
   hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:440, smH:426 },
-  clamshell: { src:'img/clamshell.webp',       w:960, h:330, sm:'img/clamshell-sm.webp',     smW:440, smH:426 },
+  clamshell: { src:'img/clamshell.webp',       w:960, h:329, sm:'img/clamshell-sm.webp',     smW:440, smH:426 },
   legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:440, smH:426 },
-  hamstring: { src:'img/hamstring.webp',      w:960, h:569, sm:'img/hamstring-sm.webp',     smW:440, smH:426 },
+  hamstring: { src:'img/hamstring.webp',      w:960, h:572, sm:'img/hamstring-sm.webp',     smW:440, smH:426 },
 };
 // the leg-raise photo shows the left leg lifted; mirror it for the right side
 function shot(key, alt, opt){
