@@ -6,6 +6,7 @@
   --muted:rgba(15,32,56,.55);
   --line:#e3e8ef;
   --bg:#f4f6f9;
+  --bg-0:rgba(244,246,249,0);
   --card:#ffffff;
   --accent:#2f6bff;
   --accent-2:#18c0c4;
@@ -40,6 +41,7 @@
     --muted:rgba(232,238,248,.50);
     --line:#243247;
     --bg:#0b1220;
+    --bg-0:rgba(11,18,32,0);
     --card:#172032;
     --accent:#6a95ff;
     --accent-2:#2fd3cd;
@@ -69,6 +71,7 @@
   --muted:rgba(232,238,248,.50);
   --line:#243247;
   --bg:#0b1220;
+  --bg-0:rgba(11,18,32,0);
   --card:#172032;
   --accent:#6a95ff;
   --accent-2:#2fd3cd;
@@ -144,20 +147,29 @@ svg{display:block}
 .icon-btn.muted{opacity:.45}
 
 /* ---------- home ---------- */
-#home{justify-content:space-between;gap:12px}
-.home-head{padding-top:10px;flex:0 0 auto}
+#home{gap:0;display:flex;flex-direction:column}
+#home.is-active{display:flex}
+.home-head{padding:10px 0 14px;flex:0 0 auto}
 .eyebrow{margin:0 0 6px;font-size:11px;letter-spacing:.18em;font-weight:800;color:var(--accent)}
 #home h1{margin:0;font-size:34px;line-height:1.15;letter-spacing:-.02em;font-weight:850}
-.home-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:12px}
+/* the only scrolling region on the home screen */
+.home-body{
+  flex:1 1 auto;min-height:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:12px;
+  padding-bottom:4px;
+  scrollbar-width:none;
+}
+.home-body::-webkit-scrollbar{display:none}
 .plan-list{
   list-style:none;margin:0;padding:0;
-  flex:1 1 auto;min-height:0;
-  display:flex;flex-direction:column;justify-content:space-between;gap:10px;
-  --rows:3;                                   /* set from JS to the exercise count */
-  --card-h:clamp(52px,calc((var(--vh,1vh) * 48 - (var(--rows) - 1) * 10px) / var(--rows)),158px);
+  flex:0 0 auto;
+  display:flex;flex-direction:column;gap:10px;
+  /* a comfortable card height that no longer depends on how many exercises there are */
+  --card-h:clamp(84px,calc(var(--vh,1vh) * 13),124px);
 }
 .plan-list li{
-  flex:0 1 auto;height:var(--card-h);min-height:0;overflow:hidden;
+  flex:0 0 auto;height:var(--card-h);overflow:hidden;
   display:flex;align-items:center;gap:14px;
   background:var(--card);border-radius:var(--r);padding:10px 16px;
   box-shadow:var(--shadow-sm);
@@ -174,7 +186,12 @@ svg{display:block}
 }
 .plan-meta span{display:block;font-size:20px;font-weight:850;font-variant-numeric:tabular-nums}
 .plan-meta small{display:block;font-size:11px;color:var(--ink-2);margin-top:1px}
-.home-foot{flex:0 0 auto;display:flex;gap:10px;padding-top:4px}
+/* pinned to the bottom of the screen, above the home indicator */
+.home-foot{
+  flex:0 0 auto;display:flex;gap:10px;
+  padding-top:26px;margin-top:-26px;
+  background:linear-gradient(to bottom,var(--bg-0),var(--bg) 24px);
+}
 .home-foot .btn-ghost{flex:0 0 96px}
 .home-foot .btn-primary{flex:1 1 auto}
 

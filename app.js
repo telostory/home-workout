@@ -112,12 +112,19 @@ const mmss = s => {
 /* ---------- audio ---------- */
 const Audio_ = {
   ctx: null,
-  // iOS mutes Web Audio when the ring/silent switch is on, but not speech.
-  // Declaring a playback session lets the bells through anyway (iOS 16.4+).
+  keepAlive: null,
+  sessionActive: false,
+  supported: typeof navigator !== 'undefined' && !!navigator.audioSession,
+  // iOS silences Web Audio when the ring/silent switch is on. Declaring a playback
+  // session lifts that (iOS 16.4+) — but speech playback and backgrounding knock the
+  // session back to the default, so this has to be re-asserted, not set once.
   applySession(){
     try{
-      if (navigator.audioSession) navigator.audioSession.type = cfg.silentBell ? 'playback' : 'auto';
-    }catch(e){}
+      if (!navigator.audioSession) return;
+      const want = cfg.silentBell ? 'playback' : 'auto';
+      if (navigator.audioSession.type !== want) navigator.audioSession.type = want;
+      this.sessionActive = navigator.audioSession.type === 'playback';
+    }catch(e){ this.sessionActive = false; }
   },
   init(){
     this.applySession();
@@ -131,8 +138,25 @@ const Audio_ = {
     o.start(); o.stop(this.ctx.currentTime + 0.02);
   },
   resume(){ if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  // An inaudible tone held for the whole workout. It stops iOS from tearing the audio
+  // session down between the sparse beeps, which is what drops the first bell after speech.
+  startKeepAlive(){
+    if (!this.ctx || this.keepAlive) return;
+    try{
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 50; g.gain.value = 0.0002;
+      o.connect(g); g.connect(this.ctx.destination); o.start();
+      this.keepAlive = { o, g };
+    }catch(e){}
+  },
+  stopKeepAlive(){
+    if (!this.keepAlive) return;
+    try{ this.keepAlive.o.stop(); this.keepAlive.o.disconnect(); this.keepAlive.g.disconnect(); }catch(e){}
+    this.keepAlive = null;
+  },
   beep(freq = 880, dur = 0.14, vol = 0.32, type = 'sine'){
     if (!cfg.beep || !this.ctx) return;
+    this.applySession();
     this.resume();
     const t = this.ctx.currentTime;
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
@@ -173,7 +197,9 @@ const Voice = {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR'; u.rate = rate; u.pitch = 1; u.volume = 1;
       const v = this.pickVoice(); if (v) u.voice = v;
+      u.onend = u.onerror = () => Audio_.applySession();
       speechSynthesis.speak(u);
+      Audio_.applySession();
     }catch(e){}
   },
   stop(){ try{ speechSynthesis.cancel(); }catch(e){} },
@@ -192,6 +218,7 @@ function unlockScreen(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLo
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){
     if (S.running && !S.paused) lockScreen();
+    Audio_.applySession();
     Audio_.resume();
   }
 });
@@ -263,7 +290,6 @@ function renderHome(){
       <div class="tm">${label}</div>
     </li>`;
   }).join('');
-  el.planList.style.setProperty('--rows', EXERCISES.length);
   el.metaSets.textContent = cfg.sets;
   el.metaTime.textContent = mmss(total).replace(/^0/, '');
   el.metaMoves.textContent = EXERCISES.length;
@@ -421,7 +447,7 @@ function loop(){
 }
 
 function startWorkout(){
-  Audio_.init(); Voice.init();
+  Audio_.init(); Voice.init(); Audio_.startKeepAlive();
   S.steps = buildPlan(cfg);
   if (!S.steps.length) return;
   S.running = true; S.paused = false;
@@ -458,10 +484,11 @@ function resume(){
   S.endAt += drift;
   S.paused = false;
   el.pauseVeil.hidden = true;
-  Audio_.resume(); lockScreen();
+  Audio_.applySession(); Audio_.resume(); Audio_.startKeepAlive(); lockScreen();
   S.raf = requestAnimationFrame(loop);
 }
 function stopWorkout(){
+  Audio_.stopKeepAlive();
   S.running = false; S.paused = false;
   cancelAnimationFrame(S.raf);
   Voice.stop(); unlockScreen();
@@ -513,8 +540,8 @@ function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.
 function showAudioInfo(){
   if (!el.audioInfo) return;
   const bits = [];
-  const sess = (typeof navigator !== 'undefined') && navigator.audioSession;
-  bits.push(sess ? `무음 우회 ${sess.type === 'playback' ? '켜짐' : '가능(꺼짐)'}` : '무음 우회 미지원');
+  if (!Audio_.supported) bits.push('무음 우회 미지원 (iOS 16.4 이상 필요)');
+  else bits.push('무음 우회 ' + (Audio_.sessionActive ? '적용됨' : (cfg.silentBell ? '대기' : '꺼짐')));
   bits.push(`오디오 ${Audio_.ctx ? Audio_.ctx.state : '미시작'}`);
   if ('speechSynthesis' in window){
     const v = Voice.pickVoice();
@@ -611,8 +638,8 @@ if ('speechSynthesis' in window){
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('touchmove', e => {
   const t = e.target;
-  const inSheet = t && t.closest && t.closest('.sheet-body');
-  if (!inSheet) e.preventDefault();
+  const inScroller = t && t.closest && t.closest('.sheet-body, .home-body');
+  if (!inScroller) e.preventDefault();
 }, { passive:false });
 
 window.addEventListener('resize', setViewportHeight);
@@ -620,6 +647,7 @@ window.addEventListener('orientationchange', () => setTimeout(setViewportHeight,
 
 /* ---------- boot ---------- */
 setViewportHeight();
+Audio_.applySession();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
 applyTheme();
 preloadShots();
