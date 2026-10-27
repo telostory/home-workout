@@ -11,6 +11,7 @@ const DEFAULTS = {
   restEx: 10, restSet: 30, sets: 3, prep: 10,
   bell: 5, beep: true, voice: true, vibe: true, silentBell: true, sayCount: true,
   theme: 'system',
+  order: null,          // exercise ids, in the order the user arranged them
 };
 const THEMES = ['system', 'light', 'dark'];
 const LIMITS = {
@@ -26,6 +27,7 @@ function load(){
     const out = { ...DEFAULTS };
     for (const k of Object.keys(DEFAULTS)){
       if (!(k in raw)) continue;
+      if (k === 'order'){ if (Array.isArray(raw.order)) out.order = raw.order.filter(v => typeof v === 'string'); continue; }
       if (typeof DEFAULTS[k] === 'boolean') out[k] = !!raw[k];
       else if (typeof DEFAULTS[k] === 'string') out[k] = String(raw[k]);
       else if (Number.isFinite(+raw[k])) out[k] = clamp(k, Math.round(+raw[k]));
@@ -74,6 +76,16 @@ const EXERCISES = [
   { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 (양쪽)',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
 ];
 const byId = id => EXERCISES.find(e => e.id === id);
+// EXERCISES is the catalogue; this is the running order the user arranged.
+// Unknown ids are dropped and newly added exercises fall in at the end.
+function orderedExercises(){
+  const seen = new Set();
+  const list = [];
+  (cfg.order || []).forEach(id => { const e = byId(id); if (e && !seen.has(id)){ seen.add(id); list.push(e); } });
+  EXERCISES.forEach(e => { if (!seen.has(e.id)) list.push(e); });
+  return list;
+}
+function setOrder(ids){ cfg.order = ids.slice(); save(); renderHome(); }
 
 /* ---------- plan builder ---------- */
 function buildPlan(c){
@@ -81,7 +93,7 @@ function buildPlan(c){
   if (c.prep > 0) steps.push({ kind:'prep', dur:c.prep, ko:'준비하세요', set:0, exIdx:0 });
 
   for (let s = 0; s < c.sets; s++){
-    EXERCISES.forEach((e, idx) => {
+    orderedExercises().forEach((e, idx) => {
       const exIdx = idx + 1, dur = c[e.id];
       if (e.perSide){
         steps.push(work(e, dur, s, exIdx, '오른쪽'));
@@ -241,6 +253,7 @@ const el = {
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
+  exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
 const RING_LEN = 2 * Math.PI * 54;
 
@@ -279,7 +292,7 @@ if (window.matchMedia){
 function renderHome(){
   const steps = buildPlan(cfg);
   const total = totalOf(steps);
-  el.planList.innerHTML = EXERCISES.map(e => {
+  el.planList.innerHTML = orderedExercises().map(e => {
     const per = cfg[e.id];
     const label = e.perSide
       ? `${per}초 × 좌우`
@@ -550,6 +563,95 @@ function showAudioInfo(){
   el.audioInfo.textContent = bits.join(' · ');
 }
 
+// the exercise rows in the settings sheet are built from the stored order,
+// so dragging them is just a matter of moving the nodes and saving the ids
+function renderExerciseRows(){
+  el.exRows.innerHTML = orderedExercises().map(e => `
+    <div class="row sort-row" data-ex="${e.id}">
+      <button class="drag-handle" type="button" aria-label="${e.ko} 순서 변경" tabindex="-1">
+        <svg viewBox="0 0 24 24"><path d="M5 9h14M5 15h14"/></svg>
+      </button>
+      <label for="s_${e.id}">${e.ko}${e.perSide ? ' <small>한쪽</small>' : ''}</label>
+      <div class="stepper" data-for="s_${e.id}">
+        <button type="button" data-d="-5">−</button>
+        <input id="s_${e.id}" type="number" inputmode="numeric" min="5" max="300" step="5">
+        <button type="button" data-d="5">+</button><i>초</i>
+      </div>
+    </div>`).join('');
+}
+
+/* ---------- drag to reorder ---------- */
+function initSortable(list){
+  let rows = [], rects = [], from = -1, to = -1, el0 = null, startY = 0, step = 0, pid = null;
+
+  const shift = () => rows.forEach((r, i) => {
+    if (r === el0) return;
+    let d = 0;
+    if (to > from && i > from && i <= to) d = -step;
+    else if (to < from && i >= to && i < from) d = step;
+    r.style.transform = d ? `translateY(${d}px)` : '';
+  });
+
+  const onDown = e => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle || pid !== null) return;
+    el0 = handle.closest('.sort-row');
+    if (!el0) return;
+    e.preventDefault();
+    rows = [...list.querySelectorAll('.sort-row')];
+    rects = rows.map(r => r.getBoundingClientRect());
+    from = to = rows.indexOf(el0);
+    const gap = rows.length > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 8;
+    step = rects[from].height + gap;        // how far the rows in between slide
+    startY = e.clientY;
+    pid = e.pointerId;
+    handle.setPointerCapture(pid);
+    list.classList.add('is-sorting');
+    el0.classList.add('is-dragging');
+    buzz(12);
+  };
+
+  const onMove = e => {
+    if (pid === null || e.pointerId !== pid) return;
+    e.preventDefault();
+    const dy = e.clientY - startY;
+    el0.style.transform = `translateY(${dy}px)`;
+    // hand over the slot once the dragged row's centre crosses a neighbour's near
+    // edge — waiting for its centre would let the two rows overlap on the way
+    const mid = rects[from].top + rects[from].height / 2 + dy;
+    let t = from;
+    for (let i = from + 1; i < rows.length; i++){ if (mid > rects[i].top) t = i; else break; }
+    for (let i = from - 1; i >= 0; i--){ if (mid < rects[i].bottom) t = i; else break; }
+    if (t !== to){ to = t; shift(); buzz(8); }
+
+    // nudge the sheet when dragging against either edge
+    const box = el.sheetBody.getBoundingClientRect();
+    if (e.clientY < box.top + 60) el.sheetBody.scrollTop -= 8;
+    else if (e.clientY > box.bottom - 60) el.sheetBody.scrollTop += 8;
+  };
+
+  const onUp = e => {
+    if (pid === null || (e && e.pointerId !== undefined && e.pointerId !== pid)) return;
+    pid = null;
+    list.classList.remove('is-sorting');
+    el0.classList.remove('is-dragging');
+    rows.forEach(r => { r.style.transform = ''; });
+    if (to !== from){
+      const ids = rows.map(r => r.dataset.ex);
+      ids.splice(to, 0, ids.splice(from, 1)[0]);
+      list.insertBefore(el0, rows[to > from ? to + 1 : to] || null);
+      setOrder(ids);
+      buzz(24);
+    }
+    el0 = null; from = to = -1;
+  };
+
+  list.addEventListener('pointerdown', onDown);
+  list.addEventListener('pointermove', onMove);
+  list.addEventListener('pointerup', onUp);
+  list.addEventListener('pointercancel', onUp);
+}
+
 function syncSoundIcon(){
   const on = cfg.beep || cfg.voice;
   el.btnSound.classList.toggle('muted', !on);
@@ -561,22 +663,25 @@ el.btnSettings.addEventListener('click', () => { Audio_.init(); openSheet(); });
 el.btnSheetClose.addEventListener('click', closeSheet);
 el.scrim.addEventListener('click', closeSheet);
 
-FIELDS.forEach(k => {
-  const input = $(FIELD_EL[k]);
-  input.addEventListener('change', () => readField(k));
-  input.addEventListener('blur', () => readField(k));
+const fieldOf = id => FIELDS.find(k => FIELD_EL[k] === id);
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.stepper button');
+  if (!btn) return;
+  const st = btn.closest('.stepper');
+  const key = fieldOf(st.dataset.for);
+  if (!key) return;
+  const input = $(st.dataset.for);
+  input.value = clamp(key, Math.round(+input.value || 0) + (+btn.dataset.d));
+  readField(key);
+  buzz(10);
 });
-document.querySelectorAll('.stepper').forEach(st => {
-  const key = FIELDS.find(k => FIELD_EL[k] === st.dataset.for);
-  st.querySelectorAll('button').forEach(b => {
-    b.addEventListener('click', () => {
-      const input = $(st.dataset.for);
-      input.value = clamp(key, Math.round(+input.value || 0) + (+b.dataset.d));
-      readField(key);
-      buzz(10);
-    });
-  });
-});
+['change', 'focusout'].forEach(type => document.addEventListener(type, e => {
+  const input = e.target.closest && e.target.closest('.stepper input');
+  if (!input) return;
+  const key = fieldOf(input.id);
+  if (key) readField(key);
+}, true));
+
 Object.keys(TOGGLES).forEach(k => {
   $(TOGGLES[k]).addEventListener('change', e => {
     cfg[k] = e.target.checked; save(); syncSoundIcon();
@@ -600,7 +705,7 @@ el.btnTestSound.addEventListener('click', () => {
   setTimeout(showAudioInfo, 300);
 });
 el.btnReset.addEventListener('click', () => {
-  cfg = { ...DEFAULTS }; save(); fillSettings(); applyTheme(); renderHome();
+  cfg = { ...DEFAULTS }; save(); renderExerciseRows(); fillSettings(); applyTheme(); renderHome();
 });
 
 el.btnNext.addEventListener('click', () => { Audio_.init(); jump(1); });
@@ -651,6 +756,8 @@ Audio_.applySession();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
 applyTheme();
 preloadShots();
+renderExerciseRows();
+initSortable(el.exRows);
 fillSettings();
 renderHome();
 show('home');
