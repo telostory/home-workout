@@ -45,12 +45,12 @@ function clamp(key, v){
 
 /* ---------- exercise photos ---------- */
 const FIG = {
-  singleLeg: { src:'img/single-leg.webp',      w:354, h:960, sm:'img/single-leg-sm.webp',     smW:440, smH:426 },
-  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:440, smH:426 },
-  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:440, smH:426 },
-  clamshell: { src:'img/clamshell.webp',       w:960, h:329, sm:'img/clamshell-sm.webp',     smW:440, smH:426 },
-  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:440, smH:426 },
-  hamstring: { src:'img/hamstring.webp',      w:960, h:572, sm:'img/hamstring-sm.webp',     smW:440, smH:426 },
+  singleLeg: { src:'img/single-leg.webp',      w:354, h:960, sm:'img/single-leg-sm.webp',     smW:433, smH:425 },
+  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:433, smH:425 },
+  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:433, smH:425 },
+  clamshell: { src:'img/clamshell.webp',       w:960, h:329, sm:'img/clamshell-sm.webp',     smW:433, smH:425 },
+  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:433, smH:425 },
+  hamstring: { src:'img/hamstring.webp',      w:960, h:572, sm:'img/hamstring-sm.webp',     smW:433, smH:425 },
 };
 // the leg-raise photo shows the left leg lifted; mirror it for the right side
 function shot(key, alt, opt){
@@ -74,9 +74,9 @@ const EXERCISES = [
   { id:'singleLeg', ko:'한 발 서기',        en:'Single Leg Stand', say:'한 발 서기',        desc:'균형·발목 안정',      fig:'singleLeg' },
   { id:'wallSit',   ko:'월 싯',            en:'Wall Sit',        say:'월싯',              desc:'허벅지 앞·코어',      fig:'wallSit'   },
   { id:'hipBridge', ko:'힙 브릿지',         en:'Hip Bridge',      say:'힙 브릿지',          desc:'둔근·햄스트링',      fig:'hipBridge' },
-  { id:'clamshell', ko:'클램쉘',           en:'Clamshell',        say:'클램쉘',           desc:'중둔근·고관절 (양쪽)', fig:'clamshell', perSide:true, shotSide:'왼쪽' },
-  { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 (양쪽)',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
-  { id:'hamstring', ko:'월 햄스트링 스트레치', en:'Wall Hamstring Stretch', say:'월 햄스트링 스트레치', desc:'햄스트링·종아리 (양쪽)', fig:'hamstring', perSide:true, shotSide:'왼쪽' },
+  { id:'clamshell', ko:'클램쉘',           en:'Clamshell',        say:'클램쉘',           desc:'중둔근·고관절', fig:'clamshell', perSide:true, shotSide:'왼쪽' },
+  { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 안정',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
+  { id:'hamstring', ko:'월 햄스트링 스트레치', en:'Wall Hamstring Stretch', say:'월 햄스트링 스트레치', desc:'햄스트링·종아리', fig:'hamstring', perSide:true, shotSide:'왼쪽' },
 ];
 const byId = id => EXERCISES.find(e => e.id === id);
 // EXERCISES is the catalogue; this is the running order the user arranged.
@@ -341,9 +341,10 @@ function updateSegments(step){
 function figFor(step){
   return step.kind === 'work' ? shot(step.fig, step.ko, { flip: needsFlip(step) }) : '';
 }
+// Measure the laid-out page rather than asking the window: innerHeight is short by
+// the status bar in an iOS standalone web app, which left a dead strip at the bottom.
 function setViewportHeight(){
-  const h = window.innerHeight;
-  document.documentElement.style.setProperty('--app-h', h + 'px');
+  const h = document.body.getBoundingClientRect().height || window.innerHeight;
   document.documentElement.style.setProperty('--vh', (h / 100) + 'px');
 }
 function nextWorkStep(from){
