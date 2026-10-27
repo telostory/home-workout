@@ -149,16 +149,20 @@ svg{display:block}
 /* ---------- home ---------- */
 #home{gap:0;display:flex;flex-direction:column}
 #home.is-active{display:flex}
-.home-head{padding:10px 0 14px;flex:0 0 auto}
-.eyebrow{margin:0 0 6px;font-size:11px;letter-spacing:.18em;font-weight:800;color:var(--accent)}
-#home h1{margin:0;font-size:34px;line-height:1.15;letter-spacing:-.02em;font-weight:850}
-/* the only scrolling region on the home screen */
+.home-head{padding:4px 0 10px;flex:0 0 auto}
+.eyebrow{margin:0 0 3px;font-size:10px;letter-spacing:.18em;font-weight:800;color:var(--accent)}
+#home h1{margin:0;font-size:clamp(22px,6.6vw,30px);line-height:1.15;letter-spacing:-.02em;font-weight:850;white-space:nowrap}
+/* the only scrolling region on the home screen; it fades out at both ends so
+   content never meets the header or the buttons on a hard edge */
 .home-body{
   flex:1 1 auto;min-height:0;
   overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
   display:flex;flex-direction:column;gap:12px;
-  padding-bottom:4px;
+  padding-bottom:2px;
   scrollbar-width:none;
+  --fade:linear-gradient(to bottom,transparent 0,#000 14px,#000 calc(100% - 26px),transparent 100%);
+  -webkit-mask-image:var(--fade);
+  mask-image:var(--fade);
 }
 .home-body::-webkit-scrollbar{display:none}
 .plan-list{
@@ -166,7 +170,7 @@ svg{display:block}
   flex:0 0 auto;
   display:flex;flex-direction:column;gap:10px;
   /* a comfortable card height that no longer depends on how many exercises there are */
-  --card-h:clamp(84px,calc(var(--vh,1vh) * 13),124px);
+  --card-h:clamp(86px,calc(var(--vh,1vh) * 13.5),130px);
 }
 .plan-list li{
   flex:0 0 auto;height:var(--card-h);overflow:hidden;
@@ -187,11 +191,7 @@ svg{display:block}
 .plan-meta span{display:block;font-size:20px;font-weight:850;font-variant-numeric:tabular-nums}
 .plan-meta small{display:block;font-size:11px;color:var(--ink-2);margin-top:1px}
 /* pinned to the bottom of the screen, above the home indicator */
-.home-foot{
-  flex:0 0 auto;display:flex;gap:10px;
-  padding-top:26px;margin-top:-26px;
-  background:linear-gradient(to bottom,var(--bg-0),var(--bg) 24px);
-}
+.home-foot{flex:0 0 auto;display:flex;gap:10px;padding-top:10px}
 .home-foot .btn-ghost{flex:0 0 96px}
 .home-foot .btn-primary{flex:1 1 auto}
 
@@ -385,7 +385,6 @@ svg{display:block}
 .fig .head{fill:var(--ink);stroke:none}
 
 @media (max-height:680px){
-  #home h1{font-size:28px}
   .plan-list li{padding:9px 14px}
 
   .btn{height:52px}
