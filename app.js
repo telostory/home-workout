@@ -7,14 +7,14 @@
 /* ---------- config ---------- */
 const STORE_KEY = 'runner-strength-v1';
 const DEFAULTS = {
-  singleLeg: 40, wallSit: 40, hipBridge: 40, legRaise: 20, switchTime: 5,
+  singleLeg: 40, wallSit: 40, hipBridge: 40, clamshell: 20, legRaise: 20, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
   bell: 5, beep: true, voice: true, vibe: true, silentBell: true, sayCount: true,
   theme: 'system',
 };
 const THEMES = ['system', 'light', 'dark'];
 const LIMITS = {
-  singleLeg:[5,300], wallSit:[5,300], hipBridge:[5,300], legRaise:[5,300], switchTime:[0,60],
+  singleLeg:[5,300], wallSit:[5,300], hipBridge:[5,300], clamshell:[5,300], legRaise:[5,300], switchTime:[0,60],
   restEx:[0,300], restSet:[0,600], sets:[1,10], prep:[0,60], bell:[0,10],
 };
 
@@ -45,6 +45,7 @@ const FIG = {
   singleLeg: { src:'img/single-leg.webp',      w:354, h:960, sm:'img/single-leg-sm.webp',     smW:440, smH:426 },
   wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:440, smH:426 },
   hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:440, smH:426 },
+  clamshell: { src:'img/clamshell.webp',       w:960, h:330, sm:'img/clamshell-sm.webp',     smW:440, smH:426 },
   legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:440, smH:426 },
 };
 // the leg-raise photo shows the left leg lifted; mirror it for the right side
@@ -69,6 +70,7 @@ const EXERCISES = [
   { id:'singleLeg', ko:'한 발 서기',        en:'Single Leg Stand', say:'한 발 서기',        desc:'균형·발목 안정',      fig:'singleLeg' },
   { id:'wallSit',   ko:'월 싯',            en:'Wall Sit',        say:'월싯',              desc:'허벅지 앞·코어',      fig:'wallSit'   },
   { id:'hipBridge', ko:'힙 브릿지',         en:'Hip Bridge',      say:'힙 브릿지',          desc:'둔근·햄스트링',      fig:'hipBridge' },
+  { id:'clamshell', ko:'클램쉘',           en:'Clamshell',        say:'클램쉘',           desc:'중둔근·고관절 (양쪽)', fig:'clamshell', perSide:true, shotSide:'왼쪽' },
   { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 (양쪽)',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
 ];
 const byId = id => EXERCISES.find(e => e.id === id);
@@ -483,9 +485,9 @@ function show(name){
 }
 
 /* ---------- settings sheet ---------- */
-const FIELDS = ['singleLeg','wallSit','hipBridge','legRaise','switchTime','restEx','restSet','sets','prep','bell'];
+const FIELDS = ['singleLeg','wallSit','hipBridge','clamshell','legRaise','switchTime','restEx','restSet','sets','prep','bell'];
 const FIELD_EL = {
-  singleLeg:'s_singleLeg', wallSit:'s_wallSit', hipBridge:'s_hipBridge', legRaise:'s_legRaise', switchTime:'s_switch',
+  singleLeg:'s_singleLeg', wallSit:'s_wallSit', hipBridge:'s_hipBridge', clamshell:'s_clamshell', legRaise:'s_legRaise', switchTime:'s_switch',
   restEx:'s_restEx', restSet:'s_restSet', sets:'s_sets', prep:'s_prep', bell:'s_bell',
 };
 const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe', sayCount:'s_sayCount', silentBell:'s_silentBell' };
