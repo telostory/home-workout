@@ -6,6 +6,15 @@
 
 /* ---------- config ---------- */
 const STORE_KEY = 'runner-strength-v1';
+// The version is taken from this script's own ?v= query, so the number on screen is
+// the number of the file that is actually running. A stale copy served from the iOS
+// web-app cache therefore shows its own old version instead of pretending to be new.
+const BUILD = (() => {
+  try{
+    const sc = document.currentScript || document.querySelector('script[src*="app.js"]');
+    return (sc && new URL(sc.src, location.href).searchParams.get('v')) || 'dev';
+  }catch(e){ return 'dev'; }
+})();
 const DEFAULTS = {
   singleLeg: 40, wallSit: 40, hipBridge: 40, clamshell: 20, legRaise: 20, hamstring: 40, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
@@ -256,6 +265,7 @@ const el = {
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
+  appVer: $('appVer'), btnUpdate: $('btnUpdate'),
   exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
 const RING_LEN = 2 * Math.PI * 54;
@@ -712,6 +722,30 @@ el.btnReset.addEventListener('click', () => {
   cfg = { ...DEFAULTS }; save(); renderExerciseRows(); fillSettings(); applyTheme(); renderHome();
 });
 
+// Reload past every cache. A plain location.reload() is not enough on iOS: the web app
+// re-serves the stored index.html, which then pulls the matching old css/js. A URL the
+// cache has never seen is, so the button navigates to one. Settings live in
+// localStorage and are untouched.
+el.btnUpdate.addEventListener('click', async () => {
+  const b = el.btnUpdate;
+  b.disabled = true; b.textContent = '불러오는 중…';
+  try{
+    if (window.caches && caches.keys){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  }catch(e){}
+  try{
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  }catch(e){}
+  let url = location.href.split('#')[0].replace(/([?&])r=\d+&?/g, '$1').replace(/[?&]$/, '');
+  url += (url.includes('?') ? '&' : '?') + 'r=' + Date.now();
+  location.replace(url);
+});
+
 el.btnNext.addEventListener('click', () => { Audio_.init(); jump(1); });
 el.btnPrev.addEventListener('click', () => { Audio_.init(); jump(-1); });
 el.btnClose.addEventListener('click', () => { S.paused ? resume() : pause(); });
@@ -756,6 +790,7 @@ window.addEventListener('orientationchange', () => setTimeout(setViewportHeight,
 
 /* ---------- boot ---------- */
 setViewportHeight();
+if (el.appVer) el.appVer.textContent = 'v' + BUILD;
 Audio_.applySession();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
 applyTheme();
