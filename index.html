@@ -14,10 +14,14 @@
      iOS reads this only when the icon is added, so changing it needs a re-install. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="러닝 근력">
+<!-- iOS paints the reserved status bar with the manifest's theme_color, captured when
+     the icon is added — not with the meta below, which app.js keeps in step with the
+     current screen for Safari. A dark theme_color there showed as a black band above a
+     light app, so the manifest now carries the app's own background colour. -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.12.0-20261028">
+<link rel="stylesheet" href="style.css?v=1.13.0-20261028">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -175,6 +179,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.12.0-20261028"></script>
+<script src="app.js?v=1.13.0-20261028"></script>
 </body>
 </html>
