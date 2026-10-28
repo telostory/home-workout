@@ -20,7 +20,8 @@ const DEFAULTS = {
   restEx: 10, restSet: 30, sets: 3, prep: 10,
   bell: 5, beep: true, voice: true, vibe: true, silentBell: true, sayCount: true,
   theme: 'system',
-  order: null,          // exercise ids, in the order the user arranged them
+  order: null,          // exercise ids and the two dividers, as the user arranged them
+  off: [],              // exercises switched off; they keep their place in the list
 };
 const THEMES = ['system', 'light', 'dark'];
 const LIMITS = {
@@ -34,10 +35,11 @@ let cfg = load();
 function load(){
   try{
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-    const out = { ...DEFAULTS };
+    const out = { ...DEFAULTS, off: [] };
     for (const k of Object.keys(DEFAULTS)){
       if (!(k in raw)) continue;
       if (k === 'order'){ if (Array.isArray(raw.order)) out.order = raw.order.filter(v => typeof v === 'string'); continue; }
+      if (k === 'off'){ if (Array.isArray(raw.off)) out.off = raw.off.filter(v => typeof v === 'string'); continue; }
       if (typeof DEFAULTS[k] === 'boolean') out[k] = !!raw[k];
       else if (typeof DEFAULTS[k] === 'string') out[k] = String(raw[k]);
       else if (Number.isFinite(+raw[k])) out[k] = clamp(k, Math.round(+raw[k]));
@@ -88,44 +90,99 @@ const EXERCISES = [
   { id:'hamstring', ko:'월 햄스트링 스트레치', en:'Wall Hamstring Stretch', say:'월 햄스트링 스트레치', desc:'햄스트링·종아리', fig:'hamstring', perSide:true, shotSide:'왼쪽' },
 ];
 const byId = id => EXERCISES.find(e => e.id === id);
-// EXERCISES is the catalogue; this is the running order the user arranged.
-// Unknown ids are dropped and newly added exercises fall in at the end.
-function orderedExercises(){
+
+/* ---------- layout: warm-up · repeat · cool-down ---------- */
+// cfg.order is one flat list that carries the two dividers alongside the exercises, so
+// dragging stays a plain reorder and an exercise's block is just how many dividers now
+// sit above it. Unknown ids are dropped, a missing divider is put back, and exercises
+// added to the catalogue later join the repeat block.
+const D_LOOP = '@loop', D_COOL = '@cool';
+const isOff = id => Array.isArray(cfg.off) && cfg.off.indexOf(id) >= 0;
+
+function layoutIds(){
   const seen = new Set();
-  const list = [];
-  (cfg.order || []).forEach(id => { const e = byId(id); if (e && !seen.has(id)){ seen.add(id); list.push(e); } });
-  EXERCISES.forEach(e => { if (!seen.has(e.id)) list.push(e); });
-  return list;
+  const out = [];
+  (Array.isArray(cfg.order) ? cfg.order : []).forEach(id => {
+    if (seen.has(id)) return;
+    if (id === D_LOOP || id === D_COOL || byId(id)){ seen.add(id); out.push(id); }
+  });
+  if (!seen.has(D_LOOP)) out.unshift(D_LOOP);
+  if (!seen.has(D_COOL)) out.push(D_COOL);
+  if (out.indexOf(D_COOL) < out.indexOf(D_LOOP)){      // the two can never cross
+    out.splice(out.indexOf(D_COOL), 1);
+    out.push(D_COOL);
+  }
+  const fresh = EXERCISES.filter(e => !seen.has(e.id)).map(e => e.id);
+  if (fresh.length) out.splice(out.indexOf(D_COOL), 0, ...fresh);
+  return out;
+}
+// the three blocks, with the switched-off exercises already taken out
+function zones(){
+  const ids = layoutIds();
+  const a = ids.indexOf(D_LOOP), b = ids.indexOf(D_COOL);
+  const live = part => part.map(byId).filter(e => e && !isOff(e.id));
+  return { ids,
+    warmup:   live(ids.slice(0, a)),
+    loop:     live(ids.slice(a + 1, b)),
+    cooldown: live(ids.slice(b + 1)) };
 }
 function setOrder(ids){ cfg.order = ids.slice(); save(); renderHome(); }
+function toggleExercise(id){
+  const off = Array.isArray(cfg.off) ? cfg.off.slice() : [];
+  const i = off.indexOf(id);
+  if (i >= 0) off.splice(i, 1); else off.push(id);
+  cfg.off = off;
+  save(); renderExerciseRows(); fillSettings(); renderHome();
+}
 
 /* ---------- plan builder ---------- */
 function buildPlan(c){
+  const z = zones();
   const steps = [];
-  if (c.prep > 0) steps.push({ kind:'prep', dur:c.prep, ko:'준비하세요', set:0, exIdx:0 });
+  // one flat run of slots — warm-up once, the repeat block once per set, cool-down
+  // once. Rests then fall between neighbours, and a set rest wherever a set turns over.
+  const seq = [];
+  z.warmup.forEach((e, i) => seq.push({ e, set:-1, zone:'warmup', idx:i + 1, of:z.warmup.length }));
+  for (let s = 0; s < c.sets; s++)
+    z.loop.forEach((e, i) => seq.push({ e, set:s, zone:'loop', idx:i + 1, of:z.loop.length }));
+  z.cooldown.forEach((e, i) => seq.push({ e, set:-1, zone:'cool', idx:i + 1, of:z.cooldown.length }));
+  if (!seq.length) return steps;
 
-  for (let s = 0; s < c.sets; s++){
-    orderedExercises().forEach((e, idx) => {
-      const exIdx = idx + 1, dur = c[e.id];
-      if (e.perSide){
-        steps.push(work(e, dur, s, exIdx, '오른쪽'));
-        if (c.switchTime > 0) steps.push({ kind:'switch', dur:c.switchTime, ko:'다리 바꾸기', set:s, exIdx });
-        steps.push(work(e, dur, s, exIdx, '왼쪽'));
-      } else {
-        steps.push(work(e, dur, s, exIdx));
-      }
-      const lastEx = idx === EXERCISES.length - 1;
-      if (!lastEx && c.restEx > 0) steps.push({ kind:'rest', dur:c.restEx, ko:'휴식', set:s, exIdx });
-    });
-    if (s < c.sets - 1 && c.restSet > 0)
-      steps.push({ kind:'setrest', dur:c.restSet, ko:'세트 휴식', set:s, exIdx:EXERCISES.length });
-  }
+  if (c.prep > 0) steps.push({ kind:'prep', dur:c.prep, ko:'준비하세요', set:0, zone:seq[0].zone, inst:0, idx:1, of:seq[0].of });
+
+  seq.forEach((slot, n) => {
+    const dur = c[slot.e.id];
+    const meta = { set:Math.max(0, slot.set), zone:slot.zone, inst:n + 1, idx:slot.idx, of:slot.of };
+    if (slot.e.perSide){
+      steps.push(work(slot.e, dur, meta, '오른쪽'));
+      if (c.switchTime > 0) steps.push({ kind:'switch', dur:c.switchTime, ko:'다리 바꾸기', ...meta });
+      steps.push(work(slot.e, dur, meta, '왼쪽'));
+    } else {
+      steps.push(work(slot.e, dur, meta));
+    }
+    const next = seq[n + 1];
+    if (!next) return;
+    const turningOver = slot.zone === 'loop' && next.zone === 'loop' && next.set !== slot.set;
+    if (turningOver){
+      if (c.restSet > 0) steps.push({ kind:'setrest', dur:c.restSet, ko:'세트 휴식', ...meta });
+    } else if (c.restEx > 0){
+      steps.push({ kind:'rest', dur:c.restEx, ko:'휴식', ...meta });
+    }
+  });
   return steps;
 
-  function work(e, dur, set, exIdx, side){
-    return { kind:'work', id:e.id, dur, set, exIdx, side,
-             ko:e.ko, en:e.en, say:e.say, fig:e.fig, shotSide:e.shotSide };
+  function work(e, dur, meta, side){
+    return { kind:'work', id:e.id, dur, side,
+             ko:e.ko, en:e.en, say:e.say, fig:e.fig, shotSide:e.shotSide, ...meta };
   }
+}
+// one bar per exercise slot, grouped the way the plan runs
+function segmentGroups(c){
+  const z = zones(), g = [];
+  if (z.warmup.length) g.push(z.warmup.length);
+  if (z.loop.length) for (let s = 0; s < c.sets; s++) g.push(z.loop.length);
+  if (z.cooldown.length) g.push(z.cooldown.length);
+  return g;
 }
 const totalOf = steps => steps.reduce((a, s) => a + s.dur, 0);
 const mmss = s => {
@@ -255,6 +312,7 @@ const el = {
   btnStart: $('btnStart'), btnSettings: $('btnSettings'),
   segments: $('segments'), totalLeft: $('totalLeft'),
   cRound: $('cRound'), cRoundT: $('cRoundT'), cEx: $('cEx'), cExT: $('cExT'),
+  roundLabel: $('roundLabel'), roundOf: $('roundOf'), loopNote: $('loopNote'),
   figure: $('figure'), ringFg: $('ringFg'), ringText: document.querySelector('.ring-text'),
   bigCount: $('bigCount'), phaseLabel: $('phaseLabel'),
   nextCard: $('nextCard'), nextName: $('nextName'), nextLabel: $('nextLabel'), nextFigure: $('nextFigure'),
@@ -304,43 +362,50 @@ if (window.matchMedia){
 /* ---------- home rendering ---------- */
 function renderHome(){
   const steps = buildPlan(cfg);
-  const total = totalOf(steps);
-  el.planList.innerHTML = orderedExercises().map(e => {
+  const z = zones();
+  const card = e => {
     const per = cfg[e.id];
-    const label = e.perSide
-      ? `${per}초 × 좌우`
-      : `${per}초`;
     return `<li>
       <div class="pic">${shot(e.fig, e.ko, { small:true })}</div>
       <div class="tx"><b>${e.ko}</b><small>${e.desc}</small></div>
-      <div class="tm">${label}</div>
+      <div class="tm">${e.perSide ? `${per}초 × 좌우` : `${per}초`}</div>
     </li>`;
-  }).join('');
-  el.metaSets.textContent = cfg.sets;
-  el.metaTime.textContent = mmss(total).replace(/^0/, '');
-  el.metaMoves.textContent = EXERCISES.length;
+  };
+  const block = (list, cap) => list.length
+    ? `<li class="plan-cap"><span>${cap}</span></li>` + list.map(card).join('') : '';
+  // the captions only earn their space once something sits outside the repeat block
+  const zoned = z.warmup.length || z.cooldown.length;
+  const total = z.warmup.length + z.loop.length + z.cooldown.length;
+  el.planList.innerHTML =
+    !total ? '<li class="plan-empty">운동이 모두 꺼져 있습니다.<br>설정에서 켜주세요.</li>'
+    : zoned ? block(z.warmup, '웜업 · 1회') + block(z.loop, `반복 · ${cfg.sets}세트`) + block(z.cooldown, '마무리 · 1회')
+    : z.loop.map(card).join('');
+  el.metaSets.textContent = z.loop.length ? cfg.sets : '–';
+  el.metaTime.textContent = mmss(totalOf(steps)).replace(/^0/, '');
+  el.metaMoves.textContent = total;
+  el.btnStart.disabled = !steps.some(st => st.kind === 'work');
 }
 
 /* ---------- workout rendering ---------- */
 function renderSegments(){
   el.segments.innerHTML = '';
-  for (let s = 0; s < cfg.sets; s++){
+  segmentGroups(cfg).forEach(n => {
     const g = document.createElement('div');
     g.className = 'seg-group';
-    for (let e = 0; e < EXERCISES.length; e++){
+    g.style.flex = String(n);          // a block of six is twice the width of a block of three
+    for (let i = 0; i < n; i++){
       const d = document.createElement('div');
       d.className = 'seg';
-      d.dataset.set = s; d.dataset.ex = e + 1;
       g.appendChild(d);
     }
     el.segments.appendChild(g);
-  }
+  });
 }
 function updateSegments(step){
   // an exercise counts as finished once we reach the rest that follows it
   const inProgress = step.kind === 'work' || step.kind === 'switch';
-  const finished = step.set * EXERCISES.length + (inProgress ? step.exIdx - 1 : step.exIdx);
-  const current = inProgress ? finished + 1 : 0;
+  const finished = inProgress ? step.inst - 1 : step.inst;
+  const current = inProgress ? step.inst : 0;
   [...el.segments.querySelectorAll('.seg')].forEach((d, idx) => {
     const n = idx + 1;
     d.classList.toggle('done', n <= finished);
@@ -365,10 +430,16 @@ function paintStep(){
   el.workout.dataset.phase = step.kind;
   updateSegments(step);
 
-  el.cRound.textContent = Math.min(cfg.sets, step.set + 1);
+  // the left counter is a round number inside the repeat block and a block name outside it
+  const inLoop = step.zone === 'loop';
+  el.roundLabel.textContent = inLoop ? '라운드' : '구간';
+  el.cRound.textContent = inLoop ? Math.min(cfg.sets, step.set + 1)
+                                 : (step.zone === 'warmup' ? '웜업' : '마무리');
+  el.cRound.classList.toggle('txt', !inLoop);
+  el.roundOf.hidden = !inLoop;
   el.cRoundT.textContent = cfg.sets;
-  el.cEx.textContent = Math.max(1, step.exIdx);
-  el.cExT.textContent = EXERCISES.length;
+  el.cEx.textContent = Math.max(1, step.idx || 1);
+  el.cExT.textContent = step.of || 1;
 
   if (step.kind === 'work'){
     el.figure.innerHTML = figFor(step);
@@ -555,7 +626,9 @@ function readField(k){
   v = clamp(k, v);
   input.value = v;
   cfg[k] = v;
-  save(); renderHome();
+  save();
+  if (k === 'sets') syncLoopNote();
+  renderHome();
 }
 function openSheet(){ fillSettings(); showAudioInfo(); showScreenInfo(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
@@ -662,21 +735,44 @@ function showScreenInfo(){
   el.screenInfo.textContent = bits.join(' · ');
 }
 
-// the exercise rows in the settings sheet are built from the stored order,
-// so dragging them is just a matter of moving the nodes and saving the ids
+// The settings list is the layout: the two dividers are rows of their own, so dragging
+// an exercise past one is what moves it in or out of the repeat block. The top caption
+// is fixed — it only labels the space above the first divider.
 function renderExerciseRows(){
-  el.exRows.innerHTML = orderedExercises().map(e => `
-    <div class="row sort-row" data-ex="${e.id}">
+  const cap = (txt, sub, div) =>
+    `<div class="sort-cap${div ? ' sort-div' : ''}"${div ? ` data-div="${div}"` : ''}>` +
+    `<span>${txt}</span><small>${sub}</small></div>`;
+  const out = [cap('웜업', '1회')];
+  layoutIds().forEach(id => {
+    if (id === D_LOOP) return out.push(cap('반복', `${cfg.sets}세트`, D_LOOP));
+    if (id === D_COOL) return out.push(cap('마무리', '1회', D_COOL));
+    const e = byId(id);
+    if (!e) return;
+    const off = isOff(id);
+    out.push(`<div class="row sort-row${off ? ' is-off' : ''}" data-ex="${e.id}">
       <button class="drag-handle" type="button" aria-label="${e.ko} 순서 변경" tabindex="-1">
         <svg viewBox="0 0 24 24"><path d="M5 9h14M5 15h14"/></svg>
       </button>
+      <button class="ex-on" type="button" data-on="${e.id}" aria-pressed="${!off}" aria-label="${e.ko} ${off ? '켜기' : '끄기'}">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </button>
       <label for="s_${e.id}">${e.ko}${e.perSide ? ' <small>한쪽</small>' : ''}</label>
+      <span class="off-tag">꺼짐</span>
       <div class="stepper" data-for="s_${e.id}">
         <button type="button" data-d="-5">−</button>
         <input id="s_${e.id}" type="number" inputmode="numeric" min="5" max="300" step="5">
         <button type="button" data-d="5">+</button><i>초</i>
       </div>
-    </div>`).join('');
+    </div>`);
+  });
+  el.exRows.innerHTML = out.join('');
+  syncLoopNote();
+}
+// the set count lives on the divider, so it has to follow the stepper
+function syncLoopNote(){
+  const small = el.exRows.querySelector(`[data-div="${D_LOOP}"] small`);
+  if (small) small.textContent = `${cfg.sets}세트`;
+  if (el.loopNote) el.loopNote.hidden = zones().loop.length > 0;
 }
 
 /* ---------- drag to reorder ---------- */
@@ -697,7 +793,7 @@ function initSortable(list){
     el0 = handle.closest('.sort-row');
     if (!el0) return;
     e.preventDefault();
-    rows = [...list.querySelectorAll('.sort-row')];
+    rows = [...list.querySelectorAll('.sort-row, .sort-div')];
     rects = rows.map(r => r.getBoundingClientRect());
     from = to = rows.indexOf(el0);
     const gap = rows.length > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 8;
@@ -736,10 +832,11 @@ function initSortable(list){
     el0.classList.remove('is-dragging');
     rows.forEach(r => { r.style.transform = ''; });
     if (to !== from){
-      const ids = rows.map(r => r.dataset.ex);
+      const ids = rows.map(r => r.dataset.ex || r.dataset.div);
       ids.splice(to, 0, ids.splice(from, 1)[0]);
       list.insertBefore(el0, rows[to > from ? to + 1 : to] || null);
       setOrder(ids);
+      syncLoopNote();
       buzz(24);
     }
     el0 = null; from = to = -1;
@@ -795,6 +892,12 @@ el.themeSeg.addEventListener('click', e => {
   const b = e.target.closest('button[data-theme]');
   if (!b) return;
   cfg.theme = b.dataset.theme; save(); applyTheme(); buzz(10);
+});
+el.exRows.addEventListener('click', e => {
+  const b = e.target.closest('.ex-on');
+  if (!b) return;
+  toggleExercise(b.dataset.on);
+  buzz(12);
 });
 el.btnTestSound.addEventListener('click', () => {
   Audio_.init(); Voice.init();

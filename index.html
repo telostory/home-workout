@@ -18,10 +18,10 @@
      the icon is added — not with the meta below, which app.js keeps in step with the
      current screen for Safari. A dark theme_color there showed as a black band above a
      light app, so the manifest now carries the app's own background colour. -->
-<link rel="manifest" href="manifest.webmanifest?v=1.15.0-20261028">
+<link rel="manifest" href="manifest.webmanifest?v=1.16.0-20261028">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.15.0-20261028">
+<link rel="stylesheet" href="style.css?v=1.16.0-20261028">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -62,7 +62,7 @@
       </button>
     </div>
     <div id="counter" class="counter">
-      <div><span>라운드</span><b><i id="cRound">1</i>/<em id="cRoundT">3</em></b></div>
+      <div><span id="roundLabel">라운드</span><b><i id="cRound">1</i><span id="roundOf">/<em id="cRoundT">3</em></span></b></div>
       <div><span>운동</span><b><i id="cEx">1</i>/<em id="cExT">3</em></b></div>
     </div>
   </div>
@@ -154,11 +154,12 @@
       </div>
     </div>
 
-    <h3>운동 시간 <small>끌어서 순서 변경</small></h3>
+    <h3>운동 구성 <small>끌어서 순서·구간 변경, 체크로 켜고 끄기</small></h3>
     <div id="exRows" class="sort-list"></div>
-    <div class="row"><label for="s_switch">다리 교체</label><div class="stepper" data-for="s_switch"><button type="button" data-d="-1">−</button><input id="s_switch" type="number" inputmode="numeric" min="0" max="60" step="1"><button type="button" data-d="1">+</button><i>초</i></div></div>
+    <p id="loopNote" class="hint" hidden>반복 구간이 비어 있어 세트 반복 없이 진행합니다.</p>
 
     <h3>휴식 &amp; 세트</h3>
+    <div class="row"><label for="s_switch">다리 교체 <small>좌우 전환</small></label><div class="stepper" data-for="s_switch"><button type="button" data-d="-1">−</button><input id="s_switch" type="number" inputmode="numeric" min="0" max="60" step="1"><button type="button" data-d="1">+</button><i>초</i></div></div>
     <div class="row"><label for="s_restEx">운동 사이 휴식</label><div class="stepper" data-for="s_restEx"><button type="button" data-d="-5">−</button><input id="s_restEx" type="number" inputmode="numeric" min="0" max="300" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
     <div class="row"><label for="s_restSet">세트 사이 휴식</label><div class="stepper" data-for="s_restSet"><button type="button" data-d="-5">−</button><input id="s_restSet" type="number" inputmode="numeric" min="0" max="600" step="5"><button type="button" data-d="5">+</button><i>초</i></div></div>
     <div class="row"><label for="s_sets">세트 수</label><div class="stepper" data-for="s_sets"><button type="button" data-d="-1">−</button><input id="s_sets" type="number" inputmode="numeric" min="1" max="10" step="1"><button type="button" data-d="1">+</button><i>세트</i></div></div>
@@ -179,6 +180,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.15.0-20261028"></script>
+<script src="app.js?v=1.16.0-20261028"></script>
 </body>
 </html>
