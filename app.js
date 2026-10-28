@@ -654,6 +654,11 @@ function showScreenInfo(){
   try{ standalone2 = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
   bits.push(viewShort ? `하단 ${viewShort}px 못 씀 · 상태바 투과`
           : (standalone2 ? '상태바 분리 · 낭비 없음' : '브라우저 탭'));
+  // the reserved status bar may be painted from the system appearance rather than from
+  // the manifest, so the system's own setting has to be visible to tell them apart
+  let sysDark = null;
+  try{ sysDark = matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){}
+  if (sysDark !== null) bits.push('시스템 ' + (sysDark ? '다크' : '라이트'));
   el.screenInfo.textContent = bits.join(' · ');
 }
 
