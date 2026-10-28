@@ -117,10 +117,12 @@ svg{display:block}
   position:absolute;inset:0;
   display:none;
   flex-direction:column;
-  /* The bottom inset is the home-indicator reserve (34px on a 15 Pro). Padding it out
-     in full threw away half a card's worth of screen, so only half of it is kept: the
+  /* --safe-t is the calibrated value, not raw env(): see calibrateInsets() in app.js,
+     which zeroes it when iOS has already moved the web view below the status bar.
+     The bottom inset is the home-indicator reserve (34px on a 15 Pro); padding it out
+     in full threw away half a card's worth of screen, so only half of it is kept — the
      buttons are 56px tall, which leaves their top 45px clear of the swipe-up zone. */
-  padding:calc(var(--safe-t) + 4px) calc(var(--safe-r) + 20px) max(10px, calc(var(--safe-b) * .5 + 6px)) calc(var(--safe-l) + 20px);
+  padding:calc(var(--safe-t) + 8px) calc(var(--safe-r) + 20px) max(10px, calc(var(--safe-b) * .5 + 6px)) calc(var(--safe-l) + 20px);
 }
 .screen.is-active{display:flex}
 

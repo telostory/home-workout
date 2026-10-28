@@ -577,19 +577,41 @@ function showAudioInfo(){
   el.audioInfo.textContent = bits.join(' · ');
 }
 
-// What the system actually hands the page. The CSS already takes 100% of the web
-// view, so when the screen still looks short the web view itself is the short one —
-// these numbers say which it is (Safari toolbars, a reserved status bar, or neither).
-function showScreenInfo(){
-  if (!el.screenInfo) return;
+// What the system actually hands the page, read straight from env() rather than from
+// the custom properties, which calibrateInsets() may have corrected.
+function readInsets(){
   const probe = document.createElement('div');
   probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;' +
     'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
   document.body.appendChild(probe);
   const ps = getComputedStyle(probe);
-  const top = Math.round(parseFloat(ps.paddingTop) || 0);
-  const bot = Math.round(parseFloat(ps.paddingBottom) || 0);
+  const out = {
+    top: Math.round(parseFloat(ps.paddingTop) || 0),
+    bottom: Math.round(parseFloat(ps.paddingBottom) || 0),
+  };
   probe.remove();
+  return out;
+}
+
+// In an iOS home-screen app with an opaque status bar the system already starts the web
+// view below the bar — yet env(safe-area-inset-top) still reports the bar's height, so
+// padding by it threw the same 59px away a second time. The giveaway is arithmetic:
+// window height + reported inset adds up to the whole screen. When it does, the system
+// has taken that strip already and the page must not reserve it again.
+let insetTopFixed = false;
+function calibrateInsets(){
+  const ins = readInsets();
+  const portrait = window.innerHeight >= window.innerWidth;
+  const screenH = portrait ? Math.max(screen.width, screen.height)
+                           : Math.min(screen.width, screen.height);
+  insetTopFixed = ins.top > 0 && window.innerHeight > 0 &&
+                  window.innerHeight + ins.top <= screenH + 2;
+  document.documentElement.style.setProperty('--safe-t', insetTopFixed ? '0px' : ins.top + 'px');
+}
+
+function showScreenInfo(){
+  if (!el.screenInfo) return;
+  const ins = readInsets();
   const vv = window.visualViewport;
   let standalone = false;
   try{ standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
@@ -600,8 +622,8 @@ function showScreenInfo(){
   ];
   if (vv) bits.push(`가시 ${Math.round(vv.width)}×${Math.round(vv.height)}`);
   bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
-  bits.push(`안전 ↑${top} ↓${bot}`);
-  bits.push(`배율 ${window.devicePixelRatio}`);
+  bits.push(`안전 ↑${ins.top} ↓${ins.bottom}`);
+  bits.push(insetTopFixed ? '상단 중복 보정됨' : '상단 보정 없음');
   el.screenInfo.textContent = bits.join(' · ');
 }
 
@@ -813,10 +835,11 @@ document.addEventListener('touchmove', e => {
   if (!inScroller) e.preventDefault();
 }, { passive:false });
 
-window.addEventListener('resize', () => { setViewportHeight(); showScreenInfo(); });
-window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 250));
+window.addEventListener('resize', () => { calibrateInsets(); setViewportHeight(); showScreenInfo(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { calibrateInsets(); setViewportHeight(); }, 250));
 
 /* ---------- boot ---------- */
+calibrateInsets();
 setViewportHeight();
 if (el.appVer) el.appVer.textContent = 'v' + BUILD;
 showScreenInfo();
