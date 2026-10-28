@@ -589,14 +589,16 @@ function readInsets(){
   return out;
 }
 
-// iOS home-screen app, measured on an iPhone 15 Pro: screen 852, window 793,
-// safe-area-inset-top 59. The web view starts at the very top of the screen — the page
-// really does run under the status bar, so the 59px top inset is needed — but the
-// layout viewport stops 59px short of the screen bottom, and that is the strip that
-// kept looking wasted. inset:0 can never reach it, so the page is given the screen's
-// real height instead. Only in a home-screen app, and only when the numbers add up
-// exactly; a Safari tab, where the toolbars own that space, is left alone.
-let pageStretched = false;
+// iPhone 15 Pro, home-screen app: screen 852, window 793, safe-area-inset-top 59.
+// The web view sits at the very top of the screen but is only screen-minus-status-bar
+// tall, and WebKit paints nothing below it — v1.9 stretched the page to 852 and the
+// start button was simply sliced off at 793. That strip cannot be drawn into, so the
+// page stays inside the web view. One thing is reclaimed: the home indicator lives
+// down in the undrawable strip, outside the page, so while the web view is short the
+// bottom inset reserves space for something that is not there. The strip itself only
+// goes away by re-adding the home-screen icon, which is when iOS re-reads the status
+// bar meta and starts the web view below the bar instead of under it.
+let viewShort = 0;
 function setViewportHeight(){
   const ins = readInsets();
   const portrait = window.innerHeight >= window.innerWidth;
@@ -604,12 +606,13 @@ function setViewportHeight(){
                            : Math.min(screen.width, screen.height);
   let standalone = false;
   try{ standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
-  let h = window.innerHeight || document.documentElement.clientHeight;
-  pageStretched = standalone && ins.top > 0 && Math.abs(screenH - (h + ins.top)) <= 2;
-  if (pageStretched) h = screenH;
+  const h = window.innerHeight || document.documentElement.clientHeight;
+  viewShort = (standalone && ins.top > 0 && Math.abs(screenH - (h + ins.top)) <= 2)
+    ? Math.round(screenH - h) : 0;
   const root = document.documentElement.style;
   root.setProperty('--page-h', h + 'px');
   root.setProperty('--vh', (h / 100) + 'px');
+  root.setProperty('--safe-b', (viewShort >= ins.bottom ? 0 : ins.bottom) + 'px');
 }
 
 function showScreenInfo(){
@@ -626,7 +629,7 @@ function showScreenInfo(){
   if (vv) bits.push(`가시 ${Math.round(vv.width)}×${Math.round(vv.height)}`);
   bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
   bits.push(`안전 ↑${ins.top} ↓${ins.bottom}`);
-  bits.push(pageStretched ? `하단 ${screen.height - window.innerHeight}px 늘림` : '늘림 없음');
+  bits.push(viewShort ? `하단 ${viewShort}px 못 씀 · 아이콘 재설치 필요` : '화면 전체 사용');
   el.screenInfo.textContent = bits.join(' · ');
 }
 

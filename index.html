@@ -6,15 +6,17 @@
 <meta id="themeColor" name="theme-color" content="#f4f6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<!-- The installed app runs the page under the status bar whatever this says, so it
-     says so too: the top safe-area inset keeps content clear of the bar, and the strip
-     behind it shows the page background. -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Not black-translucent. Under it iOS gives a home-screen app a web view that sits
+     at the top of the screen but is only screen-minus-status-bar tall, and clips
+     everything below — the bottom strip of the screen can never be drawn into. With
+     the bar reserved instead, the web view starts below it and reaches the bottom.
+     iOS reads this only when the icon is added, so changing it needs a re-install. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="러닝 근력">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.9.0-20261028">
+<link rel="stylesheet" href="style.css?v=1.10.0-20261028">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -172,6 +174,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.9.0-20261028"></script>
+<script src="app.js?v=1.10.0-20261028"></script>
 </body>
 </html>

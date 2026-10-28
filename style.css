@@ -104,12 +104,11 @@ body{
   overscroll-behavior:none;
   touch-action:manipulation;
   -webkit-user-select:none;user-select:none;
-  /* --page-h is the screen's real height, not the layout viewport's: in an iOS
-     home-screen app the viewport stops short of the screen bottom by the status bar's
-     height, so inset:0 would leave that strip unreachable. setViewportHeight() in
-     app.js works out when to stretch. No overflow:hidden here — the root's overflow
-     propagates to the viewport and would clip the page back to the short viewport;
-     nothing can scroll anyway, since a fixed page adds no document overflow. */
+  /* --page-h is the web view's height, which in an iOS home-screen app can be less
+     than the screen's. Stretching past it does not work: WebKit clips there. See
+     setViewportHeight() in app.js, which also zeroes --safe-b when the home indicator
+     falls outside the web view. */
+  overflow:hidden;
   position:fixed;top:0;left:0;right:0;
   height:var(--page-h,100%);
 }
