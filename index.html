@@ -6,15 +6,18 @@
 <meta id="themeColor" name="theme-color" content="#f4f6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<!-- Re-added to the home screen under this setting, the web view is the whole screen
-     and the page runs under the status bar, which the top safe-area inset keeps clear.
+<!-- Measured on an iPhone 15 Pro: under black-translucent iOS gives a home-screen app
+     a web view only screen-minus-status-bar tall (793 of 852) yet pins it to the TOP of
+     the screen, so the bottom 59px belongs to nobody and cannot be drawn into. With the
+     bar reserved, the web view starts below it and reaches the bottom instead, which
+     costs the same 59px that the status bar already occupies and wastes none.
      iOS reads this only when the icon is added, so changing it needs a re-install. -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="러닝 근력">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.11.0-20261028">
+<link rel="stylesheet" href="style.css?v=1.12.0-20261028">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -172,6 +175,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.11.0-20261028"></script>
+<script src="app.js?v=1.12.0-20261028"></script>
 </body>
 </html>

@@ -650,7 +650,10 @@ function showScreenInfo(){
   bits.push(`문서 ${document.documentElement.clientHeight}`);
   bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
   bits.push(`안전 ↑${ins.top} ↓${ins.bottom}`);
-  bits.push(viewShort ? `하단 ${viewShort}px 못 씀` : '화면 전체 사용');
+  let standalone2 = false;
+  try{ standalone2 = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
+  bits.push(viewShort ? `하단 ${viewShort}px 못 씀 · 상태바 투과`
+          : (standalone2 ? '상태바 분리 · 낭비 없음' : '브라우저 탭'));
   el.screenInfo.textContent = bits.join(' · ');
 }
 
