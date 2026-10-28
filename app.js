@@ -589,15 +589,13 @@ function readInsets(){
   return out;
 }
 
-// iPhone 15 Pro, home-screen app: screen 852, window 793, safe-area-inset-top 59.
-// The web view sits at the very top of the screen but is only screen-minus-status-bar
-// tall, and WebKit paints nothing below it — v1.9 stretched the page to 852 and the
-// start button was simply sliced off at 793. That strip cannot be drawn into, so the
-// page stays inside the web view. One thing is reclaimed: the home indicator lives
-// down in the undrawable strip, outside the page, so while the web view is short the
-// bottom inset reserves space for something that is not there. The strip itself only
-// goes away by re-adding the home-screen icon, which is when iOS re-reads the status
-// bar meta and starts the web view below the bar instead of under it.
+// Height of the page. iOS has lied about this in both directions on the same phone:
+// 793 on an 852 screen while the web view sat at the top (v1.9 stretched to 852 and
+// WebKit sliced the start button off at 793), then over-reported so the page came out
+// ~60px too long and pushed the buttons off the bottom entirely. So no single number is
+// trusted: the smallest credible one wins, because a page shorter than the screen only
+// wastes a strip, while a page longer than it hides its own controls. fitFooter() then
+// checks the result against the laid-out page and trims whatever is still hanging over.
 let viewShort = 0;
 function setViewportHeight(){
   const ins = readInsets();
@@ -606,14 +604,36 @@ function setViewportHeight(){
                            : Math.min(screen.width, screen.height);
   let standalone = false;
   try{ standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
-  const h = window.innerHeight || document.documentElement.clientHeight;
-  viewShort = (standalone && ins.top > 0 && Math.abs(screenH - (h + ins.top)) <= 2)
-    ? Math.round(screenH - h) : 0;
+  const cands = [window.innerHeight, document.documentElement.clientHeight,
+                 window.visualViewport && window.visualViewport.height, screenH]
+    .filter(v => typeof v === 'number' && isFinite(v) && v > 320);
+  const h = Math.round(Math.min.apply(null, cands));
+  // when the web view stops short of the screen bottom, the home indicator sits in that
+  // gap, outside the page, and reserving room for it inside would waste the space twice
+  viewShort = standalone ? Math.max(0, Math.round(screenH - h)) : 0;
   const root = document.documentElement.style;
   root.setProperty('--page-h', h + 'px');
   root.setProperty('--vh', (h / 100) + 'px');
   root.setProperty('--safe-b', (viewShort >= ins.bottom ? 0 : ins.bottom) + 'px');
 }
+
+// Last line of defence: whatever the system claimed, the buttons have to be on screen.
+function fitFooter(){
+  const foot = document.querySelector('#home .home-foot');
+  if (!foot || !el.home.classList.contains('is-active')) return;
+  const limit = Math.min(window.innerHeight || Infinity,
+                         document.documentElement.clientHeight || Infinity);
+  if (!isFinite(limit)) return;
+  const over = Math.round(foot.getBoundingClientRect().bottom - limit);
+  if (over > 0){
+    const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--page-h')) || limit;
+    const next = Math.max(320, cur - over);
+    document.documentElement.style.setProperty('--page-h', next + 'px');
+    document.documentElement.style.setProperty('--vh', (next / 100) + 'px');
+  }
+}
+
+function relayout(){ setViewportHeight(); fitFooter(); }
 
 function showScreenInfo(){
   if (!el.screenInfo) return;
@@ -627,9 +647,10 @@ function showScreenInfo(){
     `창 ${window.innerWidth}×${window.innerHeight}`,
   ];
   if (vv) bits.push(`가시 ${Math.round(vv.width)}×${Math.round(vv.height)}`);
+  bits.push(`문서 ${document.documentElement.clientHeight}`);
   bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
   bits.push(`안전 ↑${ins.top} ↓${ins.bottom}`);
-  bits.push(viewShort ? `하단 ${viewShort}px 못 씀 · 아이콘 재설치 필요` : '화면 전체 사용');
+  bits.push(viewShort ? `하단 ${viewShort}px 못 씀` : '화면 전체 사용');
   el.screenInfo.textContent = bits.join(' · ');
 }
 
@@ -841,8 +862,11 @@ document.addEventListener('touchmove', e => {
   if (!inScroller) e.preventDefault();
 }, { passive:false });
 
-window.addEventListener('resize', () => { setViewportHeight(); showScreenInfo(); });
-window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 250));
+window.addEventListener('resize', () => { relayout(); showScreenInfo(); });
+window.addEventListener('orientationchange', () => setTimeout(relayout, 250));
+// iOS settles the web view's size after load, and again when the app is resumed
+window.addEventListener('pageshow', relayout);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) relayout(); });
 
 /* ---------- boot ---------- */
 setViewportHeight();
@@ -857,5 +881,7 @@ initSortable(el.exRows);
 fillSettings();
 renderHome();
 show('home');
+requestAnimationFrame(fitFooter);
+setTimeout(relayout, 400);
 
 })();
