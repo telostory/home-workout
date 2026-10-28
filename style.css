@@ -101,14 +101,17 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
   color:var(--ink);
   background:var(--bg);
-  overflow:hidden;
   overscroll-behavior:none;
   touch-action:manipulation;
   -webkit-user-select:none;user-select:none;
-  /* inset:0 pins the page to the real viewport. Do NOT drive this from
-     window.innerHeight: in a standalone web app iOS reports it without the status
-     bar, and the safe-area padding then counts that strip a second time. */
-  position:fixed;inset:0;
+  /* --page-h is the screen's real height, not the layout viewport's: in an iOS
+     home-screen app the viewport stops short of the screen bottom by the status bar's
+     height, so inset:0 would leave that strip unreachable. setViewportHeight() in
+     app.js works out when to stretch. No overflow:hidden here — the root's overflow
+     propagates to the viewport and would clip the page back to the short viewport;
+     nothing can scroll anyway, since a fixed page adds no document overflow. */
+  position:fixed;top:0;left:0;right:0;
+  height:var(--page-h,100%);
 }
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 svg{display:block}
@@ -117,12 +120,11 @@ svg{display:block}
   position:absolute;inset:0;
   display:none;
   flex-direction:column;
-  /* --safe-t is the calibrated value, not raw env(): see calibrateInsets() in app.js,
-     which zeroes it when iOS has already moved the web view below the status bar.
-     The bottom inset is the home-indicator reserve (34px on a 15 Pro); padding it out
-     in full threw away half a card's worth of screen, so only half of it is kept — the
-     buttons are 56px tall, which leaves their top 45px clear of the swipe-up zone. */
-  padding:calc(var(--safe-t) + 8px) calc(var(--safe-r) + 20px) max(10px, calc(var(--safe-b) * .5 + 6px)) calc(var(--safe-l) + 20px);
+  /* The top inset clears the status bar, which the page runs underneath. The bottom
+     inset is the home-indicator reserve (34px on a 15 Pro); padding it out in full
+     threw away half a card's worth of screen, so only half of it is kept — the buttons
+     are 56px tall, which leaves their top 45px clear of the swipe-up zone. */
+  padding:calc(var(--safe-t) + 6px) calc(var(--safe-r) + 20px) max(10px, calc(var(--safe-b) * .5 + 6px)) calc(var(--safe-l) + 20px);
 }
 .screen.is-active{display:flex}
 

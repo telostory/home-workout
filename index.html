@@ -6,15 +6,15 @@
 <meta id="themeColor" name="theme-color" content="#f4f6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<!-- not black-translucent: letting the page run under the status bar makes iOS
-     blur that band, which smeared the title. The reserved bar takes its colour
-     from theme-color, which app.js keeps in step with the current screen. -->
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- The installed app runs the page under the status bar whatever this says, so it
+     says so too: the top safe-area inset keeps content clear of the bar, and the strip
+     behind it shows the page background. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="러닝 근력">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.8.0-20261028">
+<link rel="stylesheet" href="style.css?v=1.9.0-20261028">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -172,6 +172,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.8.0-20261028"></script>
+<script src="app.js?v=1.9.0-20261028"></script>
 </body>
 </html>

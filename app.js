@@ -353,10 +353,6 @@ function figFor(step){
 }
 // Measure the laid-out page rather than asking the window: innerHeight is short by
 // the status bar in an iOS standalone web app, which left a dead strip at the bottom.
-function setViewportHeight(){
-  const h = document.body.getBoundingClientRect().height || window.innerHeight;
-  document.documentElement.style.setProperty('--vh', (h / 100) + 'px');
-}
 function nextWorkStep(from){
   for (let k = from + 1; k < S.steps.length; k++){
     if (S.steps[k].kind === 'work') return S.steps[k];
@@ -578,7 +574,7 @@ function showAudioInfo(){
 }
 
 // What the system actually hands the page, read straight from env() rather than from
-// the custom properties, which calibrateInsets() may have corrected.
+// the custom properties, so the raw system values are always visible.
 function readInsets(){
   const probe = document.createElement('div');
   probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;' +
@@ -593,20 +589,27 @@ function readInsets(){
   return out;
 }
 
-// In an iOS home-screen app with an opaque status bar the system already starts the web
-// view below the bar — yet env(safe-area-inset-top) still reports the bar's height, so
-// padding by it threw the same 59px away a second time. The giveaway is arithmetic:
-// window height + reported inset adds up to the whole screen. When it does, the system
-// has taken that strip already and the page must not reserve it again.
-let insetTopFixed = false;
-function calibrateInsets(){
+// iOS home-screen app, measured on an iPhone 15 Pro: screen 852, window 793,
+// safe-area-inset-top 59. The web view starts at the very top of the screen — the page
+// really does run under the status bar, so the 59px top inset is needed — but the
+// layout viewport stops 59px short of the screen bottom, and that is the strip that
+// kept looking wasted. inset:0 can never reach it, so the page is given the screen's
+// real height instead. Only in a home-screen app, and only when the numbers add up
+// exactly; a Safari tab, where the toolbars own that space, is left alone.
+let pageStretched = false;
+function setViewportHeight(){
   const ins = readInsets();
   const portrait = window.innerHeight >= window.innerWidth;
   const screenH = portrait ? Math.max(screen.width, screen.height)
                            : Math.min(screen.width, screen.height);
-  insetTopFixed = ins.top > 0 && window.innerHeight > 0 &&
-                  window.innerHeight + ins.top <= screenH + 2;
-  document.documentElement.style.setProperty('--safe-t', insetTopFixed ? '0px' : ins.top + 'px');
+  let standalone = false;
+  try{ standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
+  let h = window.innerHeight || document.documentElement.clientHeight;
+  pageStretched = standalone && ins.top > 0 && Math.abs(screenH - (h + ins.top)) <= 2;
+  if (pageStretched) h = screenH;
+  const root = document.documentElement.style;
+  root.setProperty('--page-h', h + 'px');
+  root.setProperty('--vh', (h / 100) + 'px');
 }
 
 function showScreenInfo(){
@@ -623,7 +626,7 @@ function showScreenInfo(){
   if (vv) bits.push(`가시 ${Math.round(vv.width)}×${Math.round(vv.height)}`);
   bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
   bits.push(`안전 ↑${ins.top} ↓${ins.bottom}`);
-  bits.push(insetTopFixed ? '상단 중복 보정됨' : '상단 보정 없음');
+  bits.push(pageStretched ? `하단 ${screen.height - window.innerHeight}px 늘림` : '늘림 없음');
   el.screenInfo.textContent = bits.join(' · ');
 }
 
@@ -835,11 +838,10 @@ document.addEventListener('touchmove', e => {
   if (!inScroller) e.preventDefault();
 }, { passive:false });
 
-window.addEventListener('resize', () => { calibrateInsets(); setViewportHeight(); showScreenInfo(); });
-window.addEventListener('orientationchange', () => setTimeout(() => { calibrateInsets(); setViewportHeight(); }, 250));
+window.addEventListener('resize', () => { setViewportHeight(); showScreenInfo(); });
+window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 250));
 
 /* ---------- boot ---------- */
-calibrateInsets();
 setViewportHeight();
 if (el.appVer) el.appVer.textContent = 'v' + BUILD;
 showScreenInfo();
