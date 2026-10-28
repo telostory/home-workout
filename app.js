@@ -265,7 +265,7 @@ const el = {
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
-  appVer: $('appVer'), btnUpdate: $('btnUpdate'),
+  appVer: $('appVer'), btnUpdate: $('btnUpdate'), screenInfo: $('screenInfo'),
   exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
 const RING_LEN = 2 * Math.PI * 54;
@@ -561,7 +561,7 @@ function readField(k){
   cfg[k] = v;
   save(); renderHome();
 }
-function openSheet(){ fillSettings(); showAudioInfo(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
+function openSheet(){ fillSettings(); showAudioInfo(); showScreenInfo(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
 // plain-language report of what this device actually supports
 function showAudioInfo(){
@@ -575,6 +575,34 @@ function showAudioInfo(){
     bits.push(v ? `음성 ${v.name}` : '음성 한국어 없음');
   } else bits.push('음성 미지원');
   el.audioInfo.textContent = bits.join(' · ');
+}
+
+// What the system actually hands the page. The CSS already takes 100% of the web
+// view, so when the screen still looks short the web view itself is the short one —
+// these numbers say which it is (Safari toolbars, a reserved status bar, or neither).
+function showScreenInfo(){
+  if (!el.screenInfo) return;
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;' +
+    'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+  document.body.appendChild(probe);
+  const ps = getComputedStyle(probe);
+  const top = Math.round(parseFloat(ps.paddingTop) || 0);
+  const bot = Math.round(parseFloat(ps.paddingBottom) || 0);
+  probe.remove();
+  const vv = window.visualViewport;
+  let standalone = false;
+  try{ standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
+  const bits = [
+    standalone ? '홈화면 앱' : '사파리 탭',
+    `화면 ${screen.width}×${screen.height}`,
+    `창 ${window.innerWidth}×${window.innerHeight}`,
+  ];
+  if (vv) bits.push(`가시 ${Math.round(vv.width)}×${Math.round(vv.height)}`);
+  bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
+  bits.push(`안전 ↑${top} ↓${bot}`);
+  bits.push(`배율 ${window.devicePixelRatio}`);
+  el.screenInfo.textContent = bits.join(' · ');
 }
 
 // the exercise rows in the settings sheet are built from the stored order,
@@ -785,12 +813,13 @@ document.addEventListener('touchmove', e => {
   if (!inScroller) e.preventDefault();
 }, { passive:false });
 
-window.addEventListener('resize', setViewportHeight);
+window.addEventListener('resize', () => { setViewportHeight(); showScreenInfo(); });
 window.addEventListener('orientationchange', () => setTimeout(setViewportHeight, 250));
 
 /* ---------- boot ---------- */
 setViewportHeight();
 if (el.appVer) el.appVer.textContent = 'v' + BUILD;
+showScreenInfo();
 Audio_.applySession();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
 applyTheme();
