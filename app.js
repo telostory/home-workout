@@ -265,7 +265,7 @@ const el = {
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
-  appVer: $('appVer'), btnUpdate: $('btnUpdate'), screenInfo: $('screenInfo'),
+  appVer: $('appVer'), btnUpdate: $('btnUpdate'), screenInfo: $('screenInfo'), updNote: $('updNote'),
   exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
 const RING_LEN = 2 * Math.PI * 54;
@@ -557,7 +557,7 @@ function readField(k){
   cfg[k] = v;
   save(); renderHome();
 }
-function openSheet(){ fillSettings(); showAudioInfo(); showScreenInfo(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
+function openSheet(){ fillSettings(); showAudioInfo(); showScreenInfo(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
 // plain-language report of what this device actually supports
 function showAudioInfo(){
@@ -809,26 +809,67 @@ el.btnReset.addEventListener('click', () => {
 
 // Reload past every cache. A plain location.reload() is not enough on iOS: the web app
 // re-serves the stored index.html, which then pulls the matching old css/js. A URL the
-// cache has never seen is, so the button navigates to one. Settings live in
-// localStorage and are untouched.
-el.btnUpdate.addEventListener('click', async () => {
-  const b = el.btnUpdate;
-  b.disabled = true; b.textContent = '불러오는 중…';
+// cache has never seen is, so this navigates to one. Settings live in localStorage and
+// are untouched.
+function hardReload(){
+  const jobs = [];
   try{
-    if (window.caches && caches.keys){
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
+    if (window.caches && caches.keys)
+      jobs.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
   }catch(e){}
   try{
-    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r => r.unregister()));
-    }
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+      jobs.push(navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))));
   }catch(e){}
-  let url = location.href.split('#')[0].replace(/([?&])r=\d+&?/g, '$1').replace(/[?&]$/, '');
-  url += (url.includes('?') ? '&' : '?') + 'r=' + Date.now();
-  location.replace(url);
+  Promise.all(jobs).catch(() => {}).then(() => {
+    let url = location.href.split('#')[0].replace(/([?&])r=\d+&?/g, '$1').replace(/[?&]$/, '');
+    url += (url.includes('?') ? '&' : '?') + 'r=' + Date.now();
+    location.replace(url);
+  });
+}
+
+/* ---------- staying up to date ---------- */
+// A home-screen icon added from Safari starts from Safari's cache, so the very first
+// launch of a freshly added icon can still be an old build — that trap cost a round of
+// re-installs. The live version is read out of index.html itself (fetched past the
+// cache) rather than from a second file, so there is still only one place to bump it.
+const UPD_NOTE = el.updNote ? el.updNote.textContent : '';
+let latestBuild = null, updateReady = false;
+
+function showUpdateNote(){
+  if (!el.updNote) return;
+  if (updateReady) el.updNote.textContent = `새 버전 v${latestBuild} 이 있습니다. 위 버튼을 누르면 받아옵니다.`;
+  else if (latestBuild) el.updNote.textContent = '최신 버전입니다. 업데이트해도 설정값은 유지됩니다.';
+  else el.updNote.textContent = UPD_NOTE;
+  if (el.btnUpdate) el.btnUpdate.textContent = updateReady ? '새 버전 받아오기' : '최신 버전 불러오기';
+}
+
+function checkForUpdate(){
+  if (BUILD === 'dev' || navigator.onLine === false) return;
+  fetch('index.html?probe=' + Date.now(), { cache: 'no-store' })
+    .then(res => res.ok ? res.text() : null)
+    .then(text => {
+      const m = text && text.match(/app\.js\?v=([^"'&]+)/);
+      if (!m) return;
+      latestBuild = m[1];
+      updateReady = latestBuild !== BUILD;
+      showUpdateNote();
+      if (!updateReady) return;
+      // swap to it straight away when nothing is in progress; never interrupt a workout
+      if (el.workout.classList.contains('is-active') || el.sheet.classList.contains('is-open')) return;
+      let already = null;
+      try{ already = sessionStorage.getItem('autoUpdate'); }catch(e){}
+      if (already === latestBuild) return;   // one attempt per version, so a stale edge
+      try{ sessionStorage.setItem('autoUpdate', latestBuild); }catch(e){}  // cannot loop
+      hardReload();
+    })
+    .catch(() => {});
+}
+
+el.btnUpdate.addEventListener('click', () => {
+  el.btnUpdate.disabled = true;
+  el.btnUpdate.textContent = '불러오는 중…';
+  hardReload();
 });
 
 el.btnNext.addEventListener('click', () => { Audio_.init(); jump(1); });
@@ -874,7 +915,7 @@ window.addEventListener('resize', () => { relayout(); showScreenInfo(); });
 window.addEventListener('orientationchange', () => setTimeout(relayout, 250));
 // iOS settles the web view's size after load, and again when the app is resumed
 window.addEventListener('pageshow', relayout);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) relayout(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden){ relayout(); checkForUpdate(); } });
 
 /* ---------- boot ---------- */
 setViewportHeight();
@@ -891,5 +932,6 @@ renderHome();
 show('home');
 requestAnimationFrame(fitFooter);
 setTimeout(relayout, 400);
+setTimeout(checkForUpdate, 900);
 
 })();
