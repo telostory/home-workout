@@ -433,6 +433,8 @@ svg{display:block}
   height:auto;display:block;text-align:center;padding:26px 16px;
   font-size:14px;font-weight:650;color:var(--ink-2);line-height:1.6;
 }
+#verRow{cursor:pointer}
+#verRow:active{transform:scale(.99)}
 .btn:disabled{opacity:.4}
 #roundOf{font-size:13px;font-weight:800;color:var(--ink-2)}
 .counter i.txt{font-size:15px}

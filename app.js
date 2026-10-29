@@ -323,7 +323,7 @@ const el = {
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
-  appVer: $('appVer'), btnUpdate: $('btnUpdate'), screenInfo: $('screenInfo'), updNote: $('updNote'),
+  appVer: $('appVer'), verRow: $('verRow'), updNote: $('updNote'),
   exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
 const RING_LEN = 2 * Math.PI * 54;
@@ -630,7 +630,7 @@ function readField(k){
   if (k === 'sets') syncLoopNote();
   renderHome();
 }
-function openSheet(){ fillSettings(); showAudioInfo(); showScreenInfo(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
+function openSheet(){ fillSettings(); showAudioInfo(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
 // plain-language report of what this device actually supports
 function showAudioInfo(){
@@ -707,33 +707,6 @@ function fitFooter(){
 }
 
 function relayout(){ setViewportHeight(); fitFooter(); }
-
-function showScreenInfo(){
-  if (!el.screenInfo) return;
-  const ins = readInsets();
-  const vv = window.visualViewport;
-  let standalone = false;
-  try{ standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
-  const bits = [
-    standalone ? '홈화면 앱' : '사파리 탭',
-    `화면 ${screen.width}×${screen.height}`,
-    `창 ${window.innerWidth}×${window.innerHeight}`,
-  ];
-  if (vv) bits.push(`가시 ${Math.round(vv.width)}×${Math.round(vv.height)}`);
-  bits.push(`문서 ${document.documentElement.clientHeight}`);
-  bits.push(`페이지 ${Math.round(document.body.getBoundingClientRect().height)}`);
-  bits.push(`안전 ↑${ins.top} ↓${ins.bottom}`);
-  let standalone2 = false;
-  try{ standalone2 = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }catch(e){}
-  bits.push(viewShort ? `하단 ${viewShort}px 못 씀 · 상태바 투과`
-          : (standalone2 ? '상태바 분리 · 낭비 없음' : '브라우저 탭'));
-  // the reserved status bar may be painted from the system appearance rather than from
-  // the manifest, so the system's own setting has to be visible to tell them apart
-  let sysDark = null;
-  try{ sysDark = matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){}
-  if (sysDark !== null) bits.push('시스템 ' + (sysDark ? '다크' : '라이트'));
-  el.screenInfo.textContent = bits.join(' · ');
-}
 
 // The settings list is the layout: the two dividers are rows of their own, so dragging
 // an exercise past one is what moves it in or out of the repeat block. The top caption
@@ -941,14 +914,16 @@ let latestBuild = null, updateReady = false;
 
 function showUpdateNote(){
   if (!el.updNote) return;
-  if (updateReady) el.updNote.textContent = `새 버전 v${latestBuild} 이 있습니다. 위 버튼을 누르면 받아옵니다.`;
+  if (updateReady) el.updNote.textContent = `새 버전 v${latestBuild} 을 받아옵니다…`;
   else if (latestBuild) el.updNote.textContent = '최신 버전입니다. 업데이트해도 설정값은 유지됩니다.';
   else el.updNote.textContent = UPD_NOTE;
-  if (el.btnUpdate) el.btnUpdate.textContent = updateReady ? '새 버전 받아오기' : '최신 버전 불러오기';
 }
 
-function checkForUpdate(){
-  if (BUILD === 'dev' || navigator.onLine === false) return;
+function checkForUpdate(manual){
+  if (BUILD === 'dev' || navigator.onLine === false){
+    if (manual && el.updNote) el.updNote.textContent = '지금은 확인할 수 없습니다. 연결을 확인해 주세요.';
+    return;
+  }
   fetch('index.html?probe=' + Date.now(), { cache: 'no-store' })
     .then(res => res.ok ? res.text() : null)
     .then(text => {
@@ -958,21 +933,21 @@ function checkForUpdate(){
       updateReady = latestBuild !== BUILD;
       showUpdateNote();
       if (!updateReady) return;
-      // swap to it straight away when nothing is in progress; never interrupt a workout
-      if (el.workout.classList.contains('is-active') || el.sheet.classList.contains('is-open')) return;
+      // swap to it straight away when nothing is in progress; never interrupt a workout.
+      // a tap on the version row is the exception: it asked for this, sheet open or not
+      if (!manual && (el.workout.classList.contains('is-active') || el.sheet.classList.contains('is-open'))) return;
       let already = null;
       try{ already = sessionStorage.getItem('autoUpdate'); }catch(e){}
-      if (already === latestBuild) return;   // one attempt per version, so a stale edge
+      if (!manual && already === latestBuild) return;   // one try per version, so a stale edge
       try{ sessionStorage.setItem('autoUpdate', latestBuild); }catch(e){}  // cannot loop
       hardReload();
     })
-    .catch(() => {});
+    .catch(() => { if (manual && el.updNote) el.updNote.textContent = '지금은 확인할 수 없습니다. 연결을 확인해 주세요.'; });
 }
 
-el.btnUpdate.addEventListener('click', () => {
-  el.btnUpdate.disabled = true;
-  el.btnUpdate.textContent = '불러오는 중…';
-  hardReload();
+el.verRow.addEventListener('click', () => {
+  el.updNote.textContent = '확인 중…';
+  checkForUpdate(true);
 });
 
 el.btnNext.addEventListener('click', () => { Audio_.init(); jump(1); });
@@ -1014,7 +989,7 @@ document.addEventListener('touchmove', e => {
   if (!inScroller) e.preventDefault();
 }, { passive:false });
 
-window.addEventListener('resize', () => { relayout(); showScreenInfo(); });
+window.addEventListener('resize', relayout);
 window.addEventListener('orientationchange', () => setTimeout(relayout, 250));
 // iOS settles the web view's size after load, and again when the app is resumed
 window.addEventListener('pageshow', relayout);
@@ -1023,7 +998,6 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden){ rel
 /* ---------- boot ---------- */
 setViewportHeight();
 if (el.appVer) el.appVer.textContent = 'v' + BUILD;
-showScreenInfo();
 Audio_.applySession();
 el.ringFg.style.strokeDasharray = String(RING_LEN);
 applyTheme();

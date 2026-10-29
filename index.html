@@ -18,10 +18,10 @@
      the icon is added — not with the meta below, which app.js keeps in step with the
      current screen for Safari. A dark theme_color there showed as a black band above a
      light app, so the manifest now carries the app's own background colour. -->
-<link rel="manifest" href="manifest.webmanifest?v=1.16.0-20261028">
+<link rel="manifest" href="manifest.webmanifest?v=1.17.0-20261029">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.16.0-20261028">
+<link rel="stylesheet" href="style.css?v=1.17.0-20261029">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -140,10 +140,8 @@
   </div>
   <div class="sheet-body">
     <h3>앱</h3>
-    <div class="row"><label>버전 <small>지금 실행 중인 화면</small></label><span id="appVer" class="val mono">—</span></div>
-    <button id="btnUpdate" class="btn btn-ghost full" type="button">최신 버전 불러오기</button>
-    <p id="updNote" class="hint">바꾼 내용이 안 보이면 이 버튼을 누르세요. 저장된 캐시를 지우고 새로 받아오며, 설정값은 그대로 유지됩니다.</p>
-    <p id="screenInfo" class="hint mono"></p>
+    <div class="row" id="verRow"><label>버전 <small>눌러서 지금 확인</small></label><span id="appVer" class="val mono">—</span></div>
+    <p id="updNote" class="hint">새 버전이 나오면 앱을 열 때 자동으로 받아옵니다.</p>
 
     <h3>화면</h3>
     <div class="row"><label>테마</label>
@@ -180,6 +178,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.16.0-20261028"></script>
+<script src="app.js?v=1.17.0-20261029"></script>
 </body>
 </html>
