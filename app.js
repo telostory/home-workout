@@ -646,9 +646,7 @@ function readField(k){
   v = clamp(k, v);
   input.value = v;
   cfg[k] = v;
-  save();
-  if (k === 'sets') syncLoopNote();
-  renderHome();
+  save(); renderHome();
 }
 function openSheet(){ fillSettings(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
@@ -718,13 +716,15 @@ function relayout(){ setViewportHeight(); fitFooter(); }
 // an exercise past one is what moves it in or out of the repeat block. The top caption
 // is fixed — it only labels the space above the first divider.
 function renderExerciseRows(){
-  const cap = (txt, sub, div) =>
+  // no counts on these lines: the set count is a stepper further down the same sheet,
+  // and warm-up and cool-down run once by definition
+  const cap = (txt, div) =>
     `<div class="sort-cap${div ? ' sort-div' : ''}"${div ? ` data-div="${div}"` : ''}>` +
-    `<span>${txt}</span><small>${sub}</small></div>`;
-  const out = [cap('웜업', '1회')];
+    `<span>${txt}</span></div>`;
+  const out = [cap('웜업')];
   layoutIds().forEach(id => {
-    if (id === D_LOOP) return out.push(cap('반복', `${cfg.sets}세트`, D_LOOP));
-    if (id === D_COOL) return out.push(cap('마무리', '1회', D_COOL));
+    if (id === D_LOOP) return out.push(cap('반복', D_LOOP));
+    if (id === D_COOL) return out.push(cap('마무리', D_COOL));
     const e = byId(id);
     if (!e) return;
     const off = isOff(id);
@@ -747,10 +747,7 @@ function renderExerciseRows(){
   el.exRows.innerHTML = out.join('');
   syncLoopNote();
 }
-// the set count lives on the divider, so it has to follow the stepper
 function syncLoopNote(){
-  const small = el.exRows.querySelector(`[data-div="${D_LOOP}"] small`);
-  if (small) small.textContent = `${cfg.sets}세트`;
   if (el.loopNote) el.loopNote.hidden = zones().loop.length > 0;
 }
 

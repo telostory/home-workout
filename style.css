@@ -404,11 +404,9 @@ svg{display:block}
 .sort-cap{display:flex;align-items:baseline;gap:8px;margin:16px 2px 8px}
 .sort-cap:first-child{margin-top:2px}
 .sort-cap span{font-size:12px;letter-spacing:.08em;font-weight:800;color:var(--ink-2);text-transform:uppercase}
-.sort-cap small{font-size:11px;font-weight:700;color:var(--ink-2);opacity:.7;white-space:nowrap}
 .sort-cap::after{content:"";flex:1 1 auto;height:2px;border-radius:1px;background:var(--track)}
 .sort-list.is-sorting .sort-div::after{background:var(--accent)}
-.sort-list.is-sorting .sort-div span,
-.sort-list.is-sorting .sort-div small{color:var(--accent)}
+.sort-list.is-sorting .sort-div span{color:var(--accent)}
 
 .ex-on{
   flex:0 0 auto;width:26px;height:26px;border-radius:9px;margin-right:2px;
