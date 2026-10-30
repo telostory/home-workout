@@ -15,36 +15,53 @@ const BUILD = (() => {
     return (sc && new URL(sc.src, location.href).searchParams.get('v')) || 'dev';
   }catch(e){ return 'dev'; }
 })();
+const PLAN_REV = 2;     // bump when the default layout below changes
 const DEFAULTS = {
-  singleLeg: 40, wallSit: 40, hipBridge: 40, clamshell: 20, legRaise: 20, hamstring: 40, switchTime: 5,
+  foamRoll: 120, tBalance: 40, bandMarch: 40, clamshell: 20, hipBridge: 40, wallSit: 40,
+  legRaise: 20, hamstring: 40, switchTime: 5,
   restEx: 10, restSet: 30, sets: 3, prep: 10,
   bell: 5, beep: true, voice: true, vibe: true, silentBell: true, sayCount: true,
   theme: 'system',
-  order: null,          // exercise ids and the two dividers, as the user arranged them
-  off: [],              // exercises switched off; they keep their place in the list
+  // the layout: foam rolling to warm up, five exercises per set, a stretch to finish
+  order: ['foamRoll', '@loop', 'tBalance', 'bandMarch', 'clamshell', 'hipBridge', 'wallSit',
+          'legRaise', '@cool', 'hamstring'],
+  off: ['legRaise'],    // kept in the list, switched off; its time and place survive
+  plan: PLAN_REV,
 };
 const THEMES = ['system', 'light', 'dark'];
 const LIMITS = {
-  singleLeg:[5,300], wallSit:[5,300], hipBridge:[5,300], clamshell:[5,300], legRaise:[5,300], hamstring:[5,300],
+  foamRoll:[10,600], tBalance:[5,300], bandMarch:[5,300], clamshell:[5,300],
+  hipBridge:[5,300], wallSit:[5,300], legRaise:[5,300], hamstring:[5,300],
   switchTime:[0,60],
   restEx:[0,300], restSet:[0,600], sets:[1,10], prep:[0,60], bell:[0,10],
 };
 
+let migrated = false;
 let cfg = load();
+if (migrated) save();   // write the new layout back, so it is not re-applied every launch
 
 function load(){
   try{
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-    const out = { ...DEFAULTS, off: [] };
+    const out = { ...DEFAULTS, order: DEFAULTS.order.slice(), off: DEFAULTS.off.slice() };
     for (const k of Object.keys(DEFAULTS)){
       if (!(k in raw)) continue;
       if (k === 'order'){ if (Array.isArray(raw.order)) out.order = raw.order.filter(v => typeof v === 'string'); continue; }
       if (k === 'off'){ if (Array.isArray(raw.off)) out.off = raw.off.filter(v => typeof v === 'string'); continue; }
+      if (k === 'plan') continue;
       if (typeof DEFAULTS[k] === 'boolean') out[k] = !!raw[k];
       else if (typeof DEFAULTS[k] === 'string') out[k] = String(raw[k]);
       else if (Number.isFinite(+raw[k])) out[k] = clamp(k, Math.round(+raw[k]));
     }
     if (!THEMES.includes(out.theme)) out.theme = DEFAULTS.theme;
+    // A layout saved against an older default is dropped so a new arrangement actually
+    // arrives; durations, sounds and the theme are personal and are always kept.
+    if ((+raw.plan || 1) !== PLAN_REV){
+      out.order = DEFAULTS.order.slice();
+      out.off = DEFAULTS.off.slice();
+      migrated = true;
+    }
+    out.plan = PLAN_REV;
     return out;
   }catch(e){ return { ...DEFAULTS }; }
 }
@@ -56,12 +73,14 @@ function clamp(key, v){
 
 /* ---------- exercise photos ---------- */
 const FIG = {
-  singleLeg: { src:'img/single-leg.webp',      w:354, h:960, sm:'img/single-leg-sm.webp',     smW:433, smH:425 },
-  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:433, smH:425 },
-  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:433, smH:425 },
-  clamshell: { src:'img/clamshell.webp',       w:960, h:329, sm:'img/clamshell-sm.webp',     smW:433, smH:425 },
-  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:433, smH:425 },
-  hamstring: { src:'img/hamstring.webp',      w:960, h:572, sm:'img/hamstring-sm.webp',     smW:433, smH:425 },
+  foamRoll:  { src:'img/foam-roll.webp',      w:960, h:359, sm:'img/foam-roll-sm.webp',      smW:437, smH:425 },
+  tBalance:  { src:'img/t-balance.webp',      w:960, h:480, sm:'img/t-balance-sm.webp',      smW:437, smH:425 },
+  bandMarch: { src:'img/band-march.webp',     w:354, h:960, sm:'img/band-march-sm.webp',     smW:437, smH:425 },
+  clamshell: { src:'img/clamshell.webp',      w:960, h:329, sm:'img/clamshell-sm.webp',      smW:437, smH:425 },
+  hipBridge: { src:'img/hip-bridge.webp',     w:960, h:365, sm:'img/hip-bridge-sm.webp',     smW:437, smH:425 },
+  wallSit:   { src:'img/wall-sit.webp',       w:534, h:960, sm:'img/wall-sit-sm.webp',       smW:437, smH:425 },
+  legRaise:  { src:'img/side-leg-raise.webp', w:960, h:361, sm:'img/side-leg-raise-sm.webp', smW:437, smH:425 },
+  hamstring: { src:'img/hamstring.webp',      w:960, h:572, sm:'img/hamstring-sm.webp',      smW:437, smH:425 },
 };
 // the leg-raise photo shows the left leg lifted; mirror it for the right side
 function shot(key, alt, opt){
@@ -82,11 +101,13 @@ function preloadShots(){
 
 /* ---------- exercises ---------- */
 const EXERCISES = [
-  { id:'singleLeg', ko:'한 발 서기',        en:'Single Leg Stand', say:'한 발 서기',        desc:'균형·발목 안정',      fig:'singleLeg' },
-  { id:'wallSit',   ko:'월 싯',            en:'Wall Sit',        say:'월싯',              desc:'허벅지 앞·코어',      fig:'wallSit'   },
-  { id:'hipBridge', ko:'힙 브릿지',         en:'Hip Bridge',      say:'힙 브릿지',          desc:'둔근·햄스트링',      fig:'hipBridge' },
-  { id:'clamshell', ko:'클램쉘',           en:'Clamshell',        say:'클램쉘',           desc:'중둔근·고관절', fig:'clamshell', perSide:true, shotSide:'왼쪽' },
-  { id:'legRaise',  ko:'사이드 레그 레이즈', en:'Side Leg Raise',  say:'사이드 레그 레이즈', desc:'중둔근 안정',      fig:'legRaise', perSide:true, shotSide:'왼쪽' },
+  { id:'foamRoll',  ko:'폼롤러',              en:'Foam Rolling',  say:'폼롤러',            desc:'근막 이완·준비',   fig:'foamRoll' },
+  { id:'tBalance',  ko:'T 밸런스',            en:'T Balance',     say:'티 밸런스',          desc:'균형·둔근 후면',   fig:'tBalance',  perSide:true, shotSide:'왼쪽' },
+  { id:'bandMarch', ko:'래터럴 밴드 마치',     en:'Lateral Band March', say:'래터럴 밴드 마치', desc:'중둔근 활성',   fig:'bandMarch', perSide:true, shotSide:'왼쪽' },
+  { id:'clamshell', ko:'클램쉘',              en:'Clamshell',     say:'클램쉘',            desc:'중둔근·고관절',    fig:'clamshell', perSide:true, shotSide:'왼쪽' },
+  { id:'hipBridge', ko:'힙 브릿지',           en:'Hip Bridge',    say:'힙 브릿지',          desc:'둔근·햄스트링',    fig:'hipBridge' },
+  { id:'wallSit',   ko:'월 싯',               en:'Wall Sit',      say:'월싯',              desc:'허벅지 앞·코어',   fig:'wallSit'   },
+  { id:'legRaise',  ko:'사이드 레그 레이즈',   en:'Side Leg Raise', say:'사이드 레그 레이즈', desc:'중둔근 안정',     fig:'legRaise',  perSide:true, shotSide:'왼쪽' },
   { id:'hamstring', ko:'월 햄스트링 스트레치', en:'Wall Hamstring Stretch', say:'월 햄스트링 스트레치', desc:'햄스트링·종아리', fig:'hamstring', perSide:true, shotSide:'왼쪽' },
 ];
 const byId = id => EXERCISES.find(e => e.id === id);
@@ -606,11 +627,10 @@ function show(name){
 }
 
 /* ---------- settings sheet ---------- */
-const FIELDS = ['singleLeg','wallSit','hipBridge','clamshell','legRaise','hamstring','switchTime','restEx','restSet','sets','prep','bell'];
-const FIELD_EL = {
-  singleLeg:'s_singleLeg', wallSit:'s_wallSit', hipBridge:'s_hipBridge', clamshell:'s_clamshell', legRaise:'s_legRaise', hamstring:'s_hamstring', switchTime:'s_switch',
-  restEx:'s_restEx', restSet:'s_restSet', sets:'s_sets', prep:'s_prep', bell:'s_bell',
-};
+const FIELDS = EXERCISES.map(e => e.id).concat(['switchTime','restEx','restSet','sets','prep','bell']);
+const FIELD_EL = Object.assign(
+  Object.fromEntries(EXERCISES.map(e => [e.id, 's_' + e.id])),
+  { switchTime:'s_switch', restEx:'s_restEx', restSet:'s_restSet', sets:'s_sets', prep:'s_prep', bell:'s_bell' });
 const TOGGLES = { beep:'s_beep', voice:'s_voice', vibe:'s_vibe', sayCount:'s_sayCount', silentBell:'s_silentBell' };
 
 function fillSettings(){
@@ -719,7 +739,7 @@ function renderExerciseRows(){
       <span class="off-tag">꺼짐</span>
       <div class="stepper" data-for="s_${e.id}">
         <button type="button" data-d="-5">−</button>
-        <input id="s_${e.id}" type="number" inputmode="numeric" min="5" max="300" step="5">
+        <input id="s_${e.id}" type="number" inputmode="numeric" min="${LIMITS[e.id][0]}" max="${LIMITS[e.id][1]}" step="5">
         <button type="button" data-d="5">+</button><i>초</i>
       </div>
     </div>`);
