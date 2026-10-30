@@ -322,7 +322,7 @@ const el = {
   doneTime: $('doneTime'), doneSets: $('doneSets'), btnAgain: $('btnAgain'), btnHome: $('btnHome'),
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
-  themeSeg: $('themeSeg'), themeColor: $('themeColor'), audioInfo: $('audioInfo'),
+  themeSeg: $('themeSeg'), themeColor: $('themeColor'),
   appVer: $('appVer'), verRow: $('verRow'), updNote: $('updNote'),
   exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
@@ -630,22 +630,8 @@ function readField(k){
   if (k === 'sets') syncLoopNote();
   renderHome();
 }
-function openSheet(){ fillSettings(); showAudioInfo(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
+function openSheet(){ fillSettings(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
 function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
-// plain-language report of what this device actually supports
-function showAudioInfo(){
-  if (!el.audioInfo) return;
-  const bits = [];
-  if (!Audio_.supported) bits.push('무음 우회 미지원 (iOS 16.4 이상 필요)');
-  else bits.push('무음 우회 ' + (Audio_.sessionActive ? '적용됨' : (cfg.silentBell ? '대기' : '꺼짐')));
-  bits.push(`오디오 ${Audio_.ctx ? Audio_.ctx.state : '미시작'}`);
-  if ('speechSynthesis' in window){
-    const v = Voice.pickVoice();
-    bits.push(v ? `음성 ${v.name}` : '음성 한국어 없음');
-  } else bits.push('음성 미지원');
-  el.audioInfo.textContent = bits.join(' · ');
-}
-
 // What the system actually hands the page, read straight from env() rather than from
 // the custom properties, so the raw system values are always visible.
 function readInsets(){
@@ -857,7 +843,7 @@ Object.keys(TOGGLES).forEach(k => {
     if (k === 'voice' && cfg.voice){ Audio_.init(); Voice.init(); Voice.say('음성 안내 켜짐'); }
     if (k === 'beep' && cfg.beep){ Audio_.init(); setTimeout(() => Audio_.tick(), 60); }
     if (k === 'vibe' && cfg.vibe) buzz(40);
-    if (k === 'silentBell'){ Audio_.init(); Audio_.applySession(); Audio_.tick(2); showAudioInfo(); }
+    if (k === 'silentBell'){ Audio_.init(); Audio_.applySession(); Audio_.tick(2); }
     if (k === 'sayCount' && cfg.sayCount){ Voice.init(); Voice.say('3', { rate:1.35 }); }
   });
 });
@@ -877,7 +863,6 @@ el.btnTestSound.addEventListener('click', () => {
   Audio_.tick();
   setTimeout(() => Audio_.tick(), 450);
   setTimeout(() => { Audio_.go(); Voice.say('월싯, ' + cfg.wallSit + '초'); }, 900);
-  setTimeout(showAudioInfo, 300);
 });
 el.btnReset.addEventListener('click', () => {
   cfg = { ...DEFAULTS }; save(); renderExerciseRows(); fillSettings(); applyTheme(); renderHome();
