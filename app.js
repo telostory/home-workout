@@ -344,6 +344,7 @@ const el = {
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'),
+  themeColorLight: $('themeColorLight'), themeColorDark: $('themeColorDark'),
   appVer: $('appVer'), verRow: $('verRow'), updNote: $('updNote'),
   exRows: $('exRows'), sheetBody: document.querySelector('.sheet-body'),
 };
@@ -372,11 +373,14 @@ function paintThemeColor(){
   if (phase === 'rest' || phase === 'setrest' || phase === 'switch') v = cs.getPropertyValue('--top-rest');
   else if (phase) v = cs.getPropertyValue('--top-work');
   else v = cs.getPropertyValue('--bg');
-  if (el.themeColor && v.trim()) el.themeColor.setAttribute('content', v.trim());
+  v = v.trim();
+  if (!v) return;
+  // all three, so the bar matches the app whichever appearance the phone is in
+  [el.themeColorLight, el.themeColorDark, el.themeColor].forEach(m => { if (m) m.setAttribute('content', v); });
 }
 if (window.matchMedia){
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  const onChange = () => { if (cfg.theme === 'system') paintThemeColor(); };
+  const onChange = () => paintThemeColor();
   mq.addEventListener ? mq.addEventListener('change', onChange) : mq.addListener(onChange);
 }
 

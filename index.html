@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<!-- Three of these, media-qualified ones first, because the first match wins. With a
+     single unqualified theme-color Safari appears to fall back to the system appearance
+     for the status bar, which painted a black bar above a light app whenever the phone
+     was in dark mode. app.js keeps all three on the colour of the screen in view. -->
+<meta id="themeColorLight" name="theme-color" content="#f4f6f9" media="(prefers-color-scheme: light)">
+<meta id="themeColorDark" name="theme-color" content="#f4f6f9" media="(prefers-color-scheme: dark)">
 <meta id="themeColor" name="theme-color" content="#f4f6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -18,10 +24,10 @@
      the icon is added — not with the meta below, which app.js keeps in step with the
      current screen for Safari. A dark theme_color there showed as a black band above a
      light app, so the manifest now carries the app's own background colour. -->
-<link rel="manifest" href="manifest.webmanifest?v=1.21.0-20261030">
+<link rel="manifest" href="manifest.webmanifest?v=1.22.0-20261031">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.21.0-20261030">
+<link rel="stylesheet" href="style.css?v=1.22.0-20261031">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -177,6 +183,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.21.0-20261030"></script>
+<script src="app.js?v=1.22.0-20261031"></script>
 </body>
 </html>
