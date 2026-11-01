@@ -24,10 +24,10 @@
      the icon is added — not with the meta below, which app.js keeps in step with the
      current screen for Safari. A dark theme_color there showed as a black band above a
      light app, so the manifest now carries the app's own background colour. -->
-<link rel="manifest" href="manifest.webmanifest?v=1.24.0-20261101">
+<link rel="manifest" href="manifest.webmanifest?v=1.25.0-20261101">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.24.0-20261101">
+<link rel="stylesheet" href="style.css?v=1.25.0-20261101">
 <title>러닝 근력 트레이닝</title>
 </head>
 <body>
@@ -35,8 +35,13 @@
 <!-- ====================== HOME ====================== -->
 <section id="home" class="screen is-active">
   <header class="home-head">
-    <p class="eyebrow">RUNNER'S STRENGTH</p>
-    <h1>러닝 근력 트레이닝</h1>
+    <div class="head-tx">
+      <p class="eyebrow">RUNNER'S STRENGTH</p>
+      <h1>러닝 근력 트레이닝</h1>
+    </div>
+    <button id="btnHistory" class="icon-btn" type="button" aria-label="운동 기록">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+    </button>
   </header>
 
   <div class="home-body">
@@ -136,6 +141,33 @@
   </div>
 </section>
 
+<!-- ==================== HISTORY ==================== -->
+<section id="history" class="screen">
+  <header class="hist-head">
+    <button id="btnHistBack" class="icon-btn" type="button" aria-label="뒤로">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h2>운동 기록</h2>
+  </header>
+
+  <div class="cal">
+    <div class="cal-bar">
+      <button id="calPrev" class="icon-btn sm" type="button" aria-label="이전 달">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <b id="calTitle">—</b>
+      <button id="calNext" class="icon-btn sm" type="button" aria-label="다음 달">
+        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+    <p id="calSum" class="cal-sum"></p>
+    <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div id="calGrid" class="cal-grid"></div>
+  </div>
+
+  <div id="histBody" class="hist-body"></div>
+</section>
+
 <!-- ==================== SETTINGS ==================== -->
 <section id="settings" class="sheet">
   <div class="sheet-head">
@@ -184,6 +216,6 @@
 </section>
 <div id="scrim" class="scrim"></div>
 
-<script src="app.js?v=1.24.0-20261101"></script>
+<script src="app.js?v=1.25.0-20261101"></script>
 </body>
 </html>

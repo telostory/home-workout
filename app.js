@@ -71,6 +71,50 @@ function clamp(key, v){
   return Math.min(l[1], Math.max(l[0], v));
 }
 
+/* ---------- workout log ---------- */
+// Its own key, not part of cfg: resetting the settings must never erase what was done.
+const LOG_KEY = 'runner-strength-log';
+const LOG_MAX = 500;
+function loadLog(){
+  try{
+    const a = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+    return Array.isArray(a) ? a.filter(e => e && Number.isFinite(+e.t)) : [];
+  }catch(e){ return []; }
+}
+function saveLog(list){ try{ localStorage.setItem(LOG_KEY, JSON.stringify(list)); }catch(e){} }
+// The names are stored alongside the ids, so an old entry still reads correctly after
+// an exercise is renamed or dropped from the catalogue.
+function logWorkout(sec){
+  const seen = new Map();
+  S.steps.forEach(st => {
+    if (st.kind !== 'work') return;
+    const e = seen.get(st.id) || { id:st.id, ko:st.ko, reps:0, sec:0 };
+    e.reps++; e.sec += st.dur;
+    seen.set(st.id, e);
+  });
+  if (!seen.size) return;
+  const log = loadLog();
+  log.push({ t:Date.now(), sec, sets:cfg.sets, ex:[...seen.values()] });
+  while (log.length > LOG_MAX) log.shift();
+  saveLog(log);
+}
+const dayKey = t => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const hhmm = t => {
+  const d = new Date(t);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+// 1시간 12분 / 12분 30초 — whichever reads better at that length
+function human(sec){
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (h) return `${h}시간 ${m}분`;
+  if (m) return s ? `${m}분 ${s}초` : `${m}분`;
+  return `${s}초`;
+}
+
 /* ---------- exercise photos ---------- */
 const FIG = {
   foamRoll:  { src:'img/foam-roll.webp',      w:960, h:359, sm:'img/foam-roll-sm.webp',      smW:437, smH:425 },
@@ -432,6 +476,9 @@ const el = {
   btnPrev: $('btnPrev'), btnNext: $('btnNext'), btnClose: $('btnClose'), btnSound: $('btnSound'),
   pauseVeil: $('pauseVeil'), btnResume: $('btnResume'), btnQuit: $('btnQuit'),
   doneTime: $('doneTime'), doneSets: $('doneSets'), btnAgain: $('btnAgain'), btnHome: $('btnHome'),
+  history: $('history'), btnHistory: $('btnHistory'), btnHistBack: $('btnHistBack'),
+  calPrev: $('calPrev'), calNext: $('calNext'), calTitle: $('calTitle'), calSum: $('calSum'),
+  calGrid: $('calGrid'), histBody: $('histBody'),
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
   btnTestSound: $('btnTestSound'), btnReset: $('btnReset'), testNote: $('testNote'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'),
@@ -500,6 +547,64 @@ function renderHome(){
   el.metaTime.textContent = mmss(totalOf(steps)).replace(/^0/, '');
   el.metaMoves.textContent = total;
   el.btnStart.disabled = !steps.some(st => st.kind === 'work');
+}
+
+/* ---------- history ---------- */
+const hist = { y:0, m:0, sel:null };
+const esc = t => String(t == null ? '' : t)
+  .replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+function openHistory(){
+  const log = loadLog();
+  const anchorT = log.length ? log[log.length - 1].t : Date.now();
+  const d = new Date(anchorT);
+  hist.y = d.getFullYear(); hist.m = d.getMonth();
+  hist.sel = dayKey(anchorT);
+  renderHistory();
+  show('history');
+}
+function shiftMonth(by){
+  const d = new Date(hist.y, hist.m + by, 1);
+  hist.y = d.getFullYear(); hist.m = d.getMonth();
+  renderHistory();
+}
+function renderHistory(){
+  const byDay = {};
+  loadLog().forEach(e => { const k = dayKey(e.t); (byDay[k] = byDay[k] || []).push(e); });
+
+  const pad = n => String(n).padStart(2, '0');
+  const lead = new Date(hist.y, hist.m, 1).getDay();
+  const days = new Date(hist.y, hist.m + 1, 0).getDate();
+  el.calTitle.textContent = `${hist.y}년 ${hist.m + 1}월`;
+
+  let runs = 0, total = 0;
+  for (let d = 1; d <= days; d++){
+    (byDay[`${hist.y}-${pad(hist.m + 1)}-${pad(d)}`] || []).forEach(e => { runs++; total += (+e.sec || 0); });
+  }
+  el.calSum.textContent = runs ? `${runs}회 · ${human(total)}` : '이 달 기록 없음';
+
+  const today = dayKey(Date.now());
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push('<span class="cal-day is-empty"></span>');
+  for (let d = 1; d <= days; d++){
+    const k = `${hist.y}-${pad(hist.m + 1)}-${pad(d)}`;
+    const cls = [byDay[k] ? 'has' : '', k === hist.sel ? 'sel' : '', k === today ? 'today' : ''].filter(Boolean).join(' ');
+    cells.push(`<button type="button" class="cal-day ${cls}" data-day="${k}"><i>${d}</i><s></s></button>`);
+  }
+  el.calGrid.innerHTML = cells.join('');
+
+  const list = byDay[hist.sel] || [];
+  const [, mm, dd] = (hist.sel || '--').split('-');
+  if (!list.length){
+    el.histBody.innerHTML = `<p class="hist-none">${+mm || ''}월 ${+dd || ''}일<br>기록이 없습니다</p>`;
+    return;
+  }
+  el.histBody.innerHTML = `<p class="hist-date">${+mm}월 ${+dd}일</p>` + list.map(e => `
+    <article class="hist-card">
+      <header><b>${esc(hhmm(e.t))}</b><span>${esc(human(e.sec))} · ${esc(e.sets)}세트</span></header>
+      <ul>${(e.ex || []).map(x =>
+        `<li><b>${esc(x.ko || x.id)}</b><span>${esc(x.reps)}회 · ${esc(human(x.sec))}</span></li>`).join('')}</ul>
+    </article>`).join('');
 }
 
 /* ---------- workout rendering ---------- */
@@ -710,6 +815,7 @@ function finishWorkout(){
   Audio_.done();
   Voice.say('운동 완료. 수고하셨습니다');
   buzz([0, 120, 80, 120, 80, 200]);
+  logWorkout(secs);
   el.doneTime.textContent = mmss(secs);
   el.doneSets.textContent = cfg.sets;
   show('done');
@@ -717,7 +823,7 @@ function finishWorkout(){
 
 /* ---------- navigation ---------- */
 function show(name){
-  ['home','workout','done'].forEach(k => el[k].classList.toggle('is-active', k === name));
+  ['home','workout','done','history'].forEach(k => el[k].classList.toggle('is-active', k === name));
   paintThemeColor();
 }
 
@@ -1077,6 +1183,18 @@ el.btnResume.addEventListener('click', resume);
 el.btnQuit.addEventListener('click', () => { stopWorkout(); show('home'); });
 el.btnAgain.addEventListener('click', startWorkout);
 el.btnHome.addEventListener('click', () => show('home'));
+
+el.btnHistory.addEventListener('click', openHistory);
+el.btnHistBack.addEventListener('click', () => show('home'));
+el.calPrev.addEventListener('click', () => shiftMonth(-1));
+el.calNext.addEventListener('click', () => shiftMonth(1));
+el.calGrid.addEventListener('click', e => {
+  const b = e.target.closest('.cal-day[data-day]');
+  if (!b) return;
+  hist.sel = b.dataset.day;
+  renderHistory();
+  buzz(8);
+});
 
 // tap the middle of the stage to pause / resume
 document.querySelector('.wk-stage').addEventListener('click', () => { S.paused ? resume() : pause(); });
