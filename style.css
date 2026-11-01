@@ -119,6 +119,8 @@ svg{display:block}
   position:absolute;inset:0;
   display:none;
   flex-direction:column;
+  /* opaque on its own: a screen must never let the one underneath show through */
+  background:var(--bg);
   /* The top inset clears the status bar, which the page runs underneath. The bottom
      inset is the home-indicator reserve (34px on a 15 Pro); padding it out in full
      threw away half a card's worth of screen, so only half of it is kept — the buttons
@@ -155,7 +157,10 @@ svg{display:block}
 .icon-btn.muted{opacity:.45}
 
 /* ---------- home ---------- */
-#home{gap:0;display:flex;flex-direction:column}
+/* no display here: an id would outrank .screen{display:none} and leave the home
+   screen showing under every other one, which is what put the finish card on top of
+   the exercise list */
+#home{gap:0;flex-direction:column}
 #home.is-active{display:flex}
 .home-head{padding:4px 0 8px;flex:0 0 auto}
 .eyebrow{margin:0 0 3px;font-size:10px;letter-spacing:.18em;font-weight:800;color:var(--accent)}
