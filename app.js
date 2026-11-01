@@ -212,6 +212,48 @@ const mmss = s => {
 };
 
 /* ---------- audio ---------- */
+/* ---------- bell sounds ---------- */
+// The bells used to be synthesised straight into Web Audio, which the iPhone's ring/
+// silent switch mutes. A media element is a different path: it plays through the media
+// session, the one that lets a video keep its sound with the switch on. So the tones are
+// rendered to WAV once and played from <audio>; Web Audio stays as the fallback.
+const CLIPS = {
+  tick:     [{ freq: 840,  dur:0.2,  vol:0.55, type:'triangle', at:0 }],
+  tickLast: [{ freq:1050,  dur:0.2,  vol:0.55, type:'triangle', at:0 }],
+  go:       [{ freq:1180,  dur:0.34, vol:0.45, type:'sine', at:0 },
+             { freq:1570,  dur:0.4,  vol:0.40, type:'sine', at:0.13 }],
+  done:     [{ freq: 880,  dur:0.35, vol:0.36, type:'sine', at:0 },
+             { freq:1140,  dur:0.35, vol:0.36, type:'sine', at:0.17 },
+             { freq:1400,  dur:0.35, vol:0.36, type:'sine', at:0.34 }],
+};
+// same envelope the Web Audio version used: a 12ms attack, then an exponential decay
+function wavUrl(parts){
+  const rate = 22050;
+  const n = Math.ceil((Math.max(...parts.map(p => p.at + p.dur)) + 0.03) * rate);
+  const f = new Float32Array(n);
+  for (const p of parts){
+    const s0 = Math.round(p.at * rate), len = Math.round(p.dur * rate);
+    for (let i = 0; i < len && s0 + i < n; i++){
+      const t = i / rate;
+      const env = t < 0.012 ? t / 0.012
+                            : Math.pow(1e-4, (t - 0.012) / Math.max(0.001, p.dur - 0.012));
+      const ph = 2 * Math.PI * p.freq * t;
+      const wave = p.type === 'triangle' ? (2 / Math.PI) * Math.asin(Math.sin(ph)) : Math.sin(ph);
+      f[s0 + i] += wave * p.vol * env;
+    }
+  }
+  const pcm = new Int16Array(n);
+  for (let i = 0; i < n; i++) pcm[i] = Math.max(-1, Math.min(1, f[i])) * 32767;
+  const head = new DataView(new ArrayBuffer(44));
+  const txt = (o, str) => { for (let i = 0; i < str.length; i++) head.setUint8(o + i, str.charCodeAt(i)); };
+  txt(0, 'RIFF'); head.setUint32(4, 36 + pcm.byteLength, true); txt(8, 'WAVE');
+  txt(12, 'fmt '); head.setUint32(16, 16, true); head.setUint16(20, 1, true); head.setUint16(22, 1, true);
+  head.setUint32(24, rate, true); head.setUint32(28, rate * 2, true);
+  head.setUint16(32, 2, true); head.setUint16(34, 16, true);
+  txt(36, 'data'); head.setUint32(40, pcm.byteLength, true);
+  return URL.createObjectURL(new Blob([head.buffer, pcm.buffer], { type: 'audio/wav' }));
+}
+
 const Audio_ = {
   ctx: null,
   keepAlive: null,
@@ -230,6 +272,8 @@ const Audio_ = {
   },
   init(){
     this.applySession();
+    this.buildMedia();
+    this.unlockMedia();
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -240,6 +284,53 @@ const Audio_ = {
     o.start(); o.stop(this.ctx.currentTime + 0.02);
   },
   resume(){ if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  media: null,
+  mediaReady: false,
+  // One element per clip, each unlocked by the same gesture that starts the workout.
+  // The clips open with a 12ms fade-in, so playing and pausing at once is inaudible.
+  buildMedia(){
+    if (this.media) return;
+    try{
+      const pool = {};
+      for (const k of Object.keys(CLIPS)){
+        const a = new window.Audio();
+        a.src = wavUrl(CLIPS[k]);
+        a.preload = 'auto';
+        a.setAttribute('playsinline', '');
+        a.hidden = true;
+        document.body.appendChild(a);   // some iOS builds only play elements in the document
+        pool[k] = a;
+      }
+      this.media = pool;
+    }catch(e){ this.media = null; }
+  },
+  unlockMedia(){
+    if (!this.media) return;
+    Object.keys(this.media).forEach(k => {
+      const a = this.media[k];
+      try{
+        const pr = a.play();
+        const settle = () => { try{ a.pause(); a.currentTime = 0; }catch(e){} this.mediaReady = true; };
+        if (pr && pr.then) pr.then(settle).catch(() => {});
+        else settle();
+      }catch(e){}
+    });
+  },
+  // media first, Web Audio if it is not available or refuses
+  play(key, fallback){
+    if (!cfg.beep) return;
+    this.applySession();
+    const a = this.media && this.media[key];
+    if (a && this.mediaReady){
+      try{
+        a.currentTime = 0;
+        const pr = a.play();
+        if (pr && pr.catch) pr.catch(() => fallback());
+        return;
+      }catch(e){}
+    }
+    fallback();
+  },
   // An inaudible tone held for the whole workout. It stops iOS from tearing the audio
   // session down between the sparse beeps, which is what drops the first bell after speech.
   startKeepAlive(){
@@ -270,9 +361,9 @@ const Audio_ = {
     o.start(t); o.stop(t + dur + 0.02);
   },
   // countdown bell: triangle wave carries much better on a phone speaker than a sine
-  tick(n){ this.beep(n <= 1 ? 1050 : 840, 0.2, 0.55, 'triangle'); },
-  go(){ this.beep(1180, 0.34, 0.45); setTimeout(() => this.beep(1570, 0.4, 0.4), 130); },
-  done(){ [0, 170, 340].forEach((d, i) => setTimeout(() => this.beep(880 + i*260, 0.35, 0.36), d)); },
+  tick(n){ this.play(n <= 1 ? 'tickLast' : 'tick', () => this.beep(n <= 1 ? 1050 : 840, 0.2, 0.55, 'triangle')); },
+  go(){ this.play('go', () => { this.beep(1180, 0.34, 0.45); setTimeout(() => this.beep(1570, 0.4, 0.4), 130); }); },
+  done(){ this.play('done', () => [0,170,340].forEach((d,i) => setTimeout(() => this.beep(880 + i*260, 0.35, 0.36), d))); },
 };
 
 const Voice = {
@@ -342,7 +433,7 @@ const el = {
   pauseVeil: $('pauseVeil'), btnResume: $('btnResume'), btnQuit: $('btnQuit'),
   doneTime: $('doneTime'), doneSets: $('doneSets'), btnAgain: $('btnAgain'), btnHome: $('btnHome'),
   sheet: $('settings'), scrim: $('scrim'), btnSheetClose: $('btnSettingsClose'),
-  btnTestSound: $('btnTestSound'), btnReset: $('btnReset'),
+  btnTestSound: $('btnTestSound'), btnReset: $('btnReset'), testNote: $('testNote'),
   themeSeg: $('themeSeg'), themeColor: $('themeColor'),
   themeColorLight: $('themeColorLight'), themeColorDark: $('themeColorDark'),
   appVer: $('appVer'), verRow: $('verRow'), updNote: $('updNote'),
@@ -653,7 +744,23 @@ function readField(k){
   save(); renderHome();
 }
 function openSheet(){ fillSettings(); showUpdateNote(); checkForUpdate(); el.sheet.classList.add('is-open'); el.scrim.classList.add('is-on'); }
-function closeSheet(){ el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on'); }
+function closeSheet(){
+  el.sheet.classList.remove('is-open'); el.scrim.classList.remove('is-on');
+  if (el.testNote) el.testNote.hidden = true;
+}
+// Shown only after a sound test, so the sheet stays clean but there is still a way to
+// see which path the bell took when it does not come out of the phone.
+function showTestNote(){
+  if (!el.testNote) return;
+  const bits = [Audio_.mediaReady ? '벨 미디어 재생 — 무음 모드에서도 들립니다'
+                                  : '벨 웹오디오 재생 — 무음 모드에서 막힐 수 있습니다'];
+  if (!Audio_.supported) bits.push('무음 우회 미지원 기기');
+  else bits.push('무음 우회 ' + (Audio_.sessionActive ? '적용됨' : (cfg.silentBell ? '대기' : '꺼짐')));
+  const v = Voice.pickVoice();
+  bits.push(v ? '음성 ' + v.name : '한국어 음성 없음');
+  el.testNote.textContent = bits.join(' · ');
+  el.testNote.hidden = false;
+}
 // What the system actually hands the page, read straight from env() rather than from
 // the custom properties, so the raw system values are always visible.
 function readInsets(){
@@ -884,6 +991,7 @@ el.btnTestSound.addEventListener('click', () => {
   Audio_.tick();
   setTimeout(() => Audio_.tick(), 450);
   setTimeout(() => { Audio_.go(); Voice.say('월싯, ' + cfg.wallSit + '초'); }, 900);
+  setTimeout(showTestNote, 700);
 });
 el.btnReset.addEventListener('click', () => {
   cfg = { ...DEFAULTS }; save(); renderExerciseRows(); fillSettings(); applyTheme(); renderHome();
