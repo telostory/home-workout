@@ -426,7 +426,7 @@ const Voice = {
     const vs = speechSynthesis.getVoices() || [];
     return vs.find(v => v.lang && v.lang.toLowerCase().startsWith('ko')) || null;
   },
-  say(text, { force = false, rate = 1.05 } = {}){
+  say(text, { force = false, rate = 1.05, release = false } = {}){
     if (!('speechSynthesis' in window)) return;
     if (!cfg.voice && !force) return;
     try{
@@ -434,7 +434,10 @@ const Voice = {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR'; u.rate = rate; u.pitch = 1; u.volume = 1;
       const v = this.pickVoice(); if (v) u.voice = v;
-      u.onend = u.onerror = () => Audio_.applySession();
+      u.onend = u.onerror = () => {
+        Audio_.applySession();
+        if (release) S.holdBellUntil = 0;     // said and done: let the countdown run
+      };
       speechSynthesis.speak(u);
       Audio_.applySession();
     }catch(e){}
@@ -493,7 +496,14 @@ const S = {
   steps: [], i: 0, endAt: 0, stepDur: 0, remain: 0,
   running: false, paused: false, pauseAt: 0,
   lastBeepSec: -1, raf: 0, elapsedBefore: 0, startedAt: 0,
+  holdBellUntil: 0,
 };
+// The countdown waits at the start of a step until its announcement has been said.
+// Reading a number calls speechSynthesis.cancel(), so without this a 5s leg switch with
+// a 5s bell cut '반대쪽' off on its first syllable — exactly when it was needed. The
+// wait ends on the utterance's own end event; this is only the cap for when that event
+// never arrives, which iOS speech does sometimes skip.
+const BELL_HOLD = 1500;
 
 /* ---------- theme ---------- */
 function applyTheme(){
@@ -699,9 +709,10 @@ function announce(step){
   if (step.kind === 'prep')    txt = '준비하세요';
   else if (step.kind === 'work') txt = (step.side ? step.side + ' ' : '') + step.say + ', ' + step.dur + '초';
   else if (step.kind === 'rest') { const nx = nextWorkStep(S.i); txt = '휴식' + (nx ? ', 다음은 ' + (nx.side ? nx.side + ' ' : '') + nx.say : ''); }
-  else if (step.kind === 'switch') txt = '다리를 바꾸세요';
+  else if (step.kind === 'switch') txt = '반대쪽';
   else if (step.kind === 'setrest') txt = '세트 완료, 휴식. 다음은 ' + (step.set + 2) + '세트';
-  if (txt) Voice.say(txt);
+  if (txt && cfg.voice) S.holdBellUntil = performance.now() + BELL_HOLD;
+  if (txt) Voice.say(txt, { release: true });
   if (step.kind === 'work'){ Audio_.go(); buzz([0, 90, 60, 90]); }
   else buzz(45);
 }
@@ -714,6 +725,7 @@ function startStep(i){
   S.remain = step.dur;
   S.endAt = performance.now() + step.dur * 1000;
   S.lastBeepSec = -1;
+  S.holdBellUntil = 0;
   paintStep();
   announce(step);
   tickPaint(step.dur, step.dur);
@@ -747,7 +759,8 @@ function loop(){
 
   // countdown bells
   const secLeft = Math.ceil(remain - 0.001);
-  if (cfg.bell > 0 && secLeft <= cfg.bell && secLeft >= 1 && secLeft !== S.lastBeepSec){
+  if (cfg.bell > 0 && secLeft <= cfg.bell && secLeft >= 1 && secLeft !== S.lastBeepSec
+      && now >= S.holdBellUntil){
     S.lastBeepSec = secLeft;
     Audio_.tick(secLeft);
     if (cfg.sayCount) Voice.say(String(secLeft), { rate: 1.35 });
