@@ -329,49 +329,61 @@ const Audio_ = {
   },
   resume(){ if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
   media: null,
+  mediaAt: null,
   mediaReady: false,
+  mediaBroken: false,
   // One element per clip, each unlocked by the same gesture that starts the workout.
   // The clips open with a 12ms fade-in, so playing and pausing at once is inaudible.
   buildMedia(){
     if (this.media) return;
     try{
-      const pool = {};
+      const pool = {}, at = {};
       for (const k of Object.keys(CLIPS)){
-        const a = new window.Audio();
-        a.src = wavUrl(CLIPS[k]);
-        a.preload = 'auto';
-        a.setAttribute('playsinline', '');
-        a.hidden = true;
-        document.body.appendChild(a);   // some iOS builds only play elements in the document
-        pool[k] = a;
+        const url = wavUrl(CLIPS[k]);
+        // Two of each, used in turn. Restarting an element that is still sounding is
+        // what made consecutive bells clip and bunch; with a spare there is always a
+        // free one, and currentTime never has to be rewound mid-play.
+        pool[k] = [0, 1].map(() => {
+          const a = new window.Audio();
+          a.src = url;
+          a.preload = 'auto';
+          a.setAttribute('playsinline', '');
+          a.hidden = true;
+          document.body.appendChild(a);   // some iOS builds only play elements in the document
+          return a;
+        });
+        at[k] = 0;
       }
-      this.media = pool;
+      this.media = pool; this.mediaAt = at;
     }catch(e){ this.media = null; }
   },
   unlockMedia(){
     if (!this.media) return;
-    Object.keys(this.media).forEach(k => {
-      const a = this.media[k];
+    Object.keys(this.media).forEach(k => this.media[k].forEach(a => {
       try{
         const pr = a.play();
         const settle = () => { try{ a.pause(); a.currentTime = 0; }catch(e){} this.mediaReady = true; };
         if (pr && pr.then) pr.then(settle).catch(() => {});
         else settle();
       }catch(e){}
-    });
+    }));
   },
   // media first, Web Audio if it is not available or refuses
   play(key, fallback){
     if (!cfg.beep) return;
     this.applySession();
-    const a = this.media && this.media[key];
-    if (a && this.mediaReady){
+    const pool = this.media && this.media[key];
+    if (pool && this.mediaReady && !this.mediaBroken){
+      const a = pool[this.mediaAt[key] = (this.mediaAt[key] + 1) % pool.length];
       try{
-        a.currentTime = 0;
+        if (a.currentTime) a.currentTime = 0;
         const pr = a.play();
-        if (pr && pr.catch) pr.catch(() => fallback());
+        // A rejection lands long after the beat it was meant for, so sounding the
+        // fallback then is what dropped bells out of time and piled them up. Note the
+        // failure and move the rest of the workout to Web Audio instead.
+        if (pr && pr.catch) pr.catch(() => { this.mediaBroken = true; });
         return;
-      }catch(e){}
+      }catch(e){ this.mediaBroken = true; }
     }
     fallback();
   },
@@ -410,8 +422,11 @@ const Audio_ = {
   done(){ this.play('done', () => [0,170,340].forEach((d,i) => setTimeout(() => this.beep(880 + i*260, 0.35, 0.36), d))); },
 };
 
+let sayToken = 0;
 const Voice = {
   ready: false,
+  spokeAt: 0,
+  guard: 0,
   init(){
     if (!('speechSynthesis' in window)) return;
     // prime the engine on the first user gesture (iOS requirement)
@@ -426,22 +441,47 @@ const Voice = {
     const vs = speechSynthesis.getVoices() || [];
     return vs.find(v => v.lang && v.lang.toLowerCase().startsWith('ko')) || null;
   },
-  say(text, { force = false, rate = 1.05, release = false } = {}){
+  // queue:true means "only if the engine is free" — for the countdown numbers, which
+  // used to cancel() whatever was mid-sentence every single second. Dozens of those
+  // cycles in a workout wedge iOS speech until it stops talking altogether, and each
+  // one chopped the line before it. A number that cannot be fitted in is simply
+  // dropped; the bell has already marked that second.
+  say(text, { force = false, rate = 1.05, release = false, queue = false } = {}){
     if (!('speechSynthesis' in window)) return;
     if (!cfg.voice && !force) return;
     try{
-      speechSynthesis.cancel();
+      const busy = speechSynthesis.speaking || speechSynthesis.pending;
+      if (queue && busy) return;
+      if (busy) speechSynthesis.cancel();
+      if (speechSynthesis.paused) speechSynthesis.resume();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR'; u.rate = rate; u.pitch = 1; u.volume = 1;
       const v = this.pickVoice(); if (v) u.voice = v;
+      // only the newest utterance may lift the hold: a cancel fires the previous
+      // utterance's end event, which otherwise released the hold just set for this step
+      const token = ++sayToken;
       u.onend = u.onerror = () => {
         Audio_.applySession();
-        if (release) S.holdBellUntil = 0;     // said and done: let the countdown run
+        if (release && token === sayToken) S.holdBellUntil = 0;
       };
+      this.spokeAt = Date.now();
       speechSynthesis.speak(u);
       Audio_.applySession();
     }catch(e){}
   },
+  // iOS leaves the queue paused, or stuck on "speaking" with nothing coming out, and
+  // then never speaks again. Nothing here runs longer than a few seconds, so a flag
+  // still set well past that is the engine, not us.
+  startGuard(){
+    if (this.guard || !('speechSynthesis' in window)) return;
+    this.guard = setInterval(() => {
+      try{
+        if (speechSynthesis.paused) speechSynthesis.resume();
+        if (speechSynthesis.speaking && Date.now() - this.spokeAt > 8000) speechSynthesis.cancel();
+      }catch(e){}
+    }, 3000);
+  },
+  stopGuard(){ if (this.guard){ clearInterval(this.guard); this.guard = 0; } },
   stop(){ try{ speechSynthesis.cancel(); }catch(e){} },
 };
 
@@ -496,7 +536,7 @@ const S = {
   steps: [], i: 0, endAt: 0, stepDur: 0, remain: 0,
   running: false, paused: false, pauseAt: 0,
   lastBeepSec: -1, raf: 0, elapsedBefore: 0, startedAt: 0,
-  holdBellUntil: 0,
+  holdBellUntil: 0, sayTimer: 0,
 };
 // The countdown waits at the start of a step until its announcement has been said.
 // Reading a number calls speechSynthesis.cancel(), so without this a 5s leg switch with
@@ -726,6 +766,7 @@ function startStep(i){
   S.endAt = performance.now() + step.dur * 1000;
   S.lastBeepSec = -1;
   S.holdBellUntil = 0;
+  clearTimeout(S.sayTimer);
   paintStep();
   announce(step);
   tickPaint(step.dur, step.dur);
@@ -763,8 +804,14 @@ function loop(){
       && now >= S.holdBellUntil){
     S.lastBeepSec = secLeft;
     Audio_.tick(secLeft);
-    if (cfg.sayCount) Voice.say(String(secLeft), { rate: 1.35 });
     buzz(secLeft <= 1 ? 90 : 35);
+    // after the bell, not on top of it: starting speech while the bell sounds made
+    // both stutter, and on iOS it also stalled the frame the next bell was due on
+    if (cfg.sayCount){
+      const n = String(secLeft);
+      clearTimeout(S.sayTimer);
+      S.sayTimer = setTimeout(() => Voice.say(n, { rate: 1.35, queue: true }), 260);
+    }
     el.ringText.classList.remove('beat');
     void el.ringText.offsetWidth;
     el.ringText.classList.add('beat');
@@ -775,7 +822,7 @@ function loop(){
 }
 
 function startWorkout(){
-  Audio_.init(); Voice.init(); Audio_.startKeepAlive();
+  Audio_.init(); Voice.init(); Audio_.startKeepAlive(); Voice.startGuard();
   S.steps = buildPlan(cfg);
   if (!S.steps.length) return;
   S.running = true; S.paused = false;
@@ -817,6 +864,8 @@ function resume(){
 }
 function stopWorkout(){
   Audio_.stopKeepAlive();
+  Voice.stopGuard();
+  clearTimeout(S.sayTimer);
   S.running = false; S.paused = false;
   cancelAnimationFrame(S.raf);
   Voice.stop(); unlockScreen();
